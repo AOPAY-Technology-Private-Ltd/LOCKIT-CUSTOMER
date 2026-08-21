@@ -1,12 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/constants/routes/route_names.dart';
+import '../../../../core/services/session_manager.dart';
+import '../../../../core/network/network_service.dart';
+import '../../../auth/presentation/common/widgets/no_internet_widget.dart';
 import '../bloc/profile_bloc.dart';
+import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
 import '../widgets/profile_info_section.dart';
 import '../widgets/profile_info_tile.dart';
 
-class ProfileView extends StatelessWidget {
+class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
+
+  @override
+  State<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends State<ProfileView> {
+  bool _hasInternet = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkInternetAndLoadProfile();
+  }
+
+  Future<void> _checkInternetAndLoadProfile() async {
+    final bool hasConnection = await NetworkService.hasInternet();
+    setState(() {
+      _hasInternet = hasConnection;
+    });
+
+    if (hasConnection && mounted) {
+      context.read<ProfileBloc>().add(LoadProfileEvent());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,22 +66,64 @@ class ProfileView extends StatelessWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFF2563EB),
-              child: IconButton(
-                icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 20),
-                onPressed: () {},
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.red.shade50,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
+              icon: const Icon(Icons.logout, color: Colors.red, size: 18),
+              label: const Text(
+                "Logout",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              onPressed: () async {
+                await SessionManager.clearSession();
+                if (context.mounted) {
+                  context.go(RouteNames.login);
+                }
+              },
             ),
           ),
         ],
       ),
-      body: BlocBuilder<ProfileBloc, ProfileState>(
+      body: !_hasInternet
+          ? Center(
+        child: NoInternetWidget(
+          onRetry: _checkInternetAndLoadProfile,
+        ),
+      )
+          : BlocBuilder<ProfileBloc, ProfileState>(
         builder: (context, state) {
           if (state is ProfileLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is ProfileError) {
-            return Center(child: Text(state.message));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      state.message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _checkInternetAndLoadProfile,
+                      child: const Text("Retry"),
+                    ),
+                  ],
+                ),
+              ),
+            );
           } else if (state is ProfileLoaded) {
             final profile = state.profile;
 
@@ -136,27 +208,6 @@ class ProfileView extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              // TextButton.icon(
-                              //   onPressed: () {},
-                              //   style: TextButton.styleFrom(
-                              //     backgroundColor: const Color(0xFFEFF6FF),
-                              //     shape: RoundedRectangleBorder(
-                              //       borderRadius: BorderRadius.circular(10),
-                              //     ),
-                              //     padding: const EdgeInsets.symmetric(
-                              //         horizontal: 12, vertical: 8),
-                              //   ),
-                              //   icon: const Icon(Icons.edit_outlined,
-                              //       size: 16, color: Color(0xFF2563EB)),
-                              //   label: const Text(
-                              //     "Edit",
-                              //     style: TextStyle(
-                              //       color: Color(0xFF2563EB),
-                              //       fontWeight: FontWeight.w600,
-                              //       fontSize: 12,
-                              //     ),
-                              //   ),
-                              // ),
                             ],
                           ),
                         ),

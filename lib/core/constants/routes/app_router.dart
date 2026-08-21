@@ -4,6 +4,9 @@ import '../../../features/auth/presentation/Login/bloc/login_bloc.dart';
 import '../../../features/auth/presentation/Login/pages/login_page.dart';
 import '../../../features/auth/presentation/verifyotp/bloc/otp_bloc.dart';
 import '../../../features/auth/presentation/verifyotp/pages/otp_verification_view.dart';
+import '../../../features/generate_key/presentation/bloc/generate_key_bloc.dart';
+import '../../../features/generate_key/presentation/pages/generate_key_page.dart';
+import '../../../features/generate_key/presentation/security_key_view/pages/security_key_vew.dart';
 import '../../../features/profile/presentation/bloc/profile_bloc.dart' show ProfileBloc;
 import '../../../features/profile/presentation/bloc/profile_event.dart';
 import '../../../features/profile/presentation/pages/profile_view.dart';
@@ -48,6 +51,24 @@ class AppRouter {
         builder: (context, state) => BlocProvider(
           create: (_) => sl<ProfileBloc>()..add(LoadProfileEvent()),
           child: const ProfileView(),
+        ),
+      ),
+
+      GoRoute(
+        path: RouteNames.generateKey,
+        name: RouteNames.generateKey,
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<GenerateKeyBloc>(),
+          child: const GenerateKeyView(),
+        ),
+      ),
+
+      GoRoute(
+        path: RouteNames.securityKey,
+        name: RouteNames.securityKey,
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<GenerateKeyBloc>(),
+          child: const SecurityKeyView(),
         ),
       ),
 

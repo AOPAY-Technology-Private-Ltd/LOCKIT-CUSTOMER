@@ -33,16 +33,22 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
     emit(LoginLoading());
     try {
-      await loginUseCase(
+      print('--- STEP 1: CALLING LOGIN API ---');
+      final loginResult = await loginUseCase(
         mobileOrEmailID: input,
       );
+      print('--- LOGIN API SUCCESS ---');
+      print('Login Message: ${loginResult.message}');
 
-      final result = await sendOtpUseCase(input);
+      print('--- STEP 2: CALLING SEND OTP API ---');
+      final otpResult = await sendOtpUseCase(input);
+      print('--- SEND OTP API SUCCESS ---');
+      print('OTP Message: ${otpResult.message}');
 
       emit(
         LoginSuccess(
           mobile: input,
-          message: result.message,
+          message: otpResult.message,
         ),
       );
     } catch (e) {
@@ -56,6 +62,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       } else {
         errorMessage = rawError;
       }
+
+      print('--- LOGIN / OTP FLOW ERROR ---');
+      print(errorMessage);
 
       emit(LoginFailure(error: errorMessage));
     }

@@ -5,7 +5,6 @@ class LoginUseCase {
   final AuthRepository repository;
 
   LoginUseCase(this.repository);
-
   Future<AuthEntity> call({
     required String mobileOrEmailID,
   }) async {

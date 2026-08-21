@@ -10,7 +10,7 @@ class VerifyOtpUseCase {
     required String mobileOrEmail,
     required String otp,
   }) async {
-    return await repository.verifyOtp(
+    return await repository.kitVerifyOtp(
       mobileOrEmail: mobileOrEmail,
       otp: otp,
     );

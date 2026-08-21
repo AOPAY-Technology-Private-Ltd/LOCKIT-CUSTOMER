@@ -6,6 +6,7 @@ class OtpInputField extends StatelessWidget {
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final TextInputAction textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   const OtpInputField({
     super.key,
@@ -13,6 +14,7 @@ class OtpInputField extends StatelessWidget {
     required this.focusNode,
     required this.onChanged,
     this.textInputAction = TextInputAction.next,
+    this.onSubmitted,
   });
 
   @override
@@ -22,9 +24,7 @@ class OtpInputField extends StatelessWidget {
       focusNode: focusNode,
       keyboardType: TextInputType.number,
       textInputAction: textInputAction,
-      onSubmitted: (_) {
-        FocusScope.of(context).unfocus();
-      },
+      onSubmitted: onSubmitted,
       textAlign: TextAlign.center,
       textAlignVertical: TextAlignVertical.center,
       maxLength: 1,
