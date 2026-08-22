@@ -7,3 +7,7 @@ class SplashLoading extends SplashState {}
 class SplashCompleted extends SplashState {
   SplashCompleted();
 }
+
+class SplashNavigateToHome extends SplashState {
+  SplashNavigateToHome();
+}

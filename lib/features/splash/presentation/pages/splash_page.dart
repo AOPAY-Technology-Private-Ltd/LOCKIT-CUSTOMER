@@ -25,6 +25,8 @@ class SplashPage extends StatelessWidget {
         listener: (context, state) {
           if (state is SplashCompleted) {
             context.go(RouteNames.login);
+          } else if (state is SplashNavigateToHome) {
+            context.go(RouteNames.profile);
           }
         },
         child: Scaffold(

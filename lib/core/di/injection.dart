@@ -13,6 +13,11 @@ import '../../features/profile/data/repositories/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/domain/usecases/get_user_profile_usecase.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
+import '../../features/generate_key/data/datasources/generate_key_remote_datasource.dart';
+import '../../features/generate_key/data/repositories/generate_key_repository_impl.dart';
+import '../../features/generate_key/domain/repositories/generate_key_repository.dart';
+import '../../features/generate_key/domain/usecases/generate_key_usecase.dart';
+import '../../features/generate_key/presentation/bloc/generate_key_bloc.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -41,4 +46,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetUserProfileUseCase(sl()));
 
   sl.registerFactory(() => ProfileBloc(sl()));
+
+  sl.registerLazySingleton<GenerateKeyRemoteDataSource>(() => GenerateKeyRemoteDataSourceImpl());
+  sl.registerLazySingleton<GenerateKeyRepository>(() => GenerateKeyRepositoryImpl(sl()));
+  sl.registerLazySingleton(() => GenerateKeyUseCase(sl()));
+  sl.registerFactory(() => GenerateKeyBloc(sl()));
 }

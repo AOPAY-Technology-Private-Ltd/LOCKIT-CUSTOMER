@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/services/session_manager.dart';
 import 'splash_event.dart';
 import 'splash_state.dart';
 
@@ -15,6 +16,12 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
 
     await Future.delayed(const Duration(seconds: 3));
 
-    emit(SplashCompleted());
+    bool isLoggedIn = await SessionManager.isLoggedIn();
+
+    if (isLoggedIn) {
+      emit(SplashNavigateToHome());
+    } else {
+      emit(SplashCompleted());
+    }
   }
 }
