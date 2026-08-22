@@ -66,10 +66,13 @@ class AppRouter {
       GoRoute(
         path: RouteNames.securityKey,
         name: RouteNames.securityKey,
-        builder: (context, state) => BlocProvider(
-          create: (_) => sl<GenerateKeyBloc>(),
-          child: const SecurityKeyView(),
-        ),
+        builder: (context, state) {
+          final String? key = state.extra as String?;
+          return BlocProvider(
+            create: (_) => sl<GenerateKeyBloc>(),
+            child: SecurityKeyView(initialKey: key),
+          );
+        },
       ),
 
       // GoRoute(
