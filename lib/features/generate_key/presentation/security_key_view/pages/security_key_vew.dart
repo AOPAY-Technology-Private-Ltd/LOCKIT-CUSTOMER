@@ -1,17 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../core/network/network_service.dart';
-
-import '../../../../auth/presentation/common/widgets/auth_button.dart';
 import '../../../../auth/presentation/common/widgets/auth_footer.dart';
 import '../../../../auth/presentation/common/widgets/auth_logo.dart';
 import '../../../../auth/presentation/common/widgets/curved_top_container.dart';
 import '../../../../auth/presentation/common/widgets/no_internet_widget.dart';
+
 import '../../bloc/generate_key_bloc.dart';
+import '../../bloc/generate_key_event.dart';
+import '../../bloc/generate_key_state.dart';
 
 class SecurityKeyView extends StatefulWidget {
-  const SecurityKeyView({super.key});
+  final String? initialKey;
+  const SecurityKeyView({super.key, this.initialKey});
 
   @override
   State<SecurityKeyView> createState() => _SecurityKeyViewState();
@@ -19,17 +22,70 @@ class SecurityKeyView extends StatefulWidget {
 
 class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingObserver {
   String? errorMessage;
-  String displayedKey = "---- ---- ---- ----";
-  int remainingSeconds = 105;
+  late String displayedKey;
+
+  final int totalSeconds = 120;
+  int remainingSeconds = 120;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    debugPrint("--- [SecurityKeyView] Received initialKey: ${widget.initialKey} ---");
+
+    displayedKey = widget.initialKey ?? "---- ---- ---- ----";
+
+    if (widget.initialKey != null && widget.initialKey!.isNotEmpty) {
+      _startCountdownTimer();
+    } else {
+      remainingSeconds = 0;
+    }
+  }
+  void _generateKey() async {
+    debugPrint("--- [SecurityKeyView] Generate New Key Button Clicked! ---");
+
+    final bool hasConnection = await NetworkService.hasInternet();
+    debugPrint("--- [SecurityKeyView] Has Internet Connection: $hasConnection ---");
+
+    if (!hasConnection) {
+      setState(() {
+        errorMessage = 'No internet connection';
+      });
+      return;
+    }
+
+    setState(() {
+      errorMessage = null;
+    });
+
+    if (!mounted) return;
+
+    debugPrint("--- [SecurityKeyView] Adding RequestGenerateKeyEvent to BLoC ---");
+    context.read<GenerateKeyBloc>().add(RequestGenerateKeyEvent());
+  }
+
+  void _startCountdownTimer() {
+    _timer?.cancel();
+    setState(() {
+      remainingSeconds = totalSeconds;
+    });
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (remainingSeconds > 0) {
+        setState(() {
+          remainingSeconds--;
+        });
+      } else {
+        _timer?.cancel();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -59,37 +115,24 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
     }
   }
 
-  Future<void> _onGenerateKeyClicked() async {
-    final bool hasConnection = await NetworkService.hasInternet();
-    if (!hasConnection) {
-      setState(() {
-        errorMessage = 'No internet connection';
-      });
-      return;
-    }
-
-    setState(() {
-      errorMessage = null;
-    });
-
-    if (!mounted) return;
-    context.read<GenerateKeyBloc>().add(RequestGenerateKeyEvent());
-  }
-
-  String _formatTimer(int totalSeconds) {
-    final int minutes = totalSeconds ~/ 60;
-    final int seconds = totalSeconds % 60;
+  String _formatTimer(int totalSecs) {
+    final int minutes = totalSecs ~/ 60;
+    final int seconds = totalSecs % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isButtonEnabled = remainingSeconds <= 0;
+    double progressValue = remainingSeconds / totalSeconds;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       body: BlocListener<GenerateKeyBloc, GenerateKeyState>(
         listener: (context, state) {
+          debugPrint("--- [SecurityKeyView] Bloc State Received: $state ---");
           if (state is GenerateKeyLoading) {
             _showLoader(context);
           } else {
@@ -101,13 +144,14 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
             setState(() {
               errorMessage = state.message;
             });
-          }
-          else if (state is GenerateKeySuccess) {
+          } else if (state is GenerateKeySuccess) {
             if (!mounted) return;
+            debugPrint("--- [SecurityKeyView] Success! New Key: ${state.keyCode} ---");
             setState(() {
               displayedKey = state.keyCode;
               errorMessage = null;
             });
+            _startCountdownTimer();
           }
         },
         child: GestureDetector(
@@ -119,7 +163,6 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
               final height = constraints.maxHeight;
               final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
               final bool isKeyboardVisible = keyboardHeight > 0;
-              final double imageSize = isKeyboardVisible ? 90.0 : 150.0;
 
               return Container(
                 width: double.infinity,
@@ -132,7 +175,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                   children: [
                     if (!isKeyboardVisible)
                       Positioned(
-                        top: height * 0.05,
+                        top: height * 0.07,
                         left: 0,
                         right: 0,
                         child: const AuthLogo(),
@@ -144,7 +187,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                       bottom: isKeyboardVisible ? keyboardHeight - 20 : 0,
                       child: SizedBox(
                         width: width * 1.76,
-                        height: height * 0.65,
+                        height: height * 0.70,
                         child: CurvedTopContainer(
                           curveHeight: 0.28,
                           child: Padding(
@@ -157,82 +200,87 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF9F5FF),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: const Color(0xFFE9D5FF)),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFFE0E7FF),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.key_rounded,
-                                            color: Color(0xFF7C3AED),
-                                            size: 24,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          "YOUR SECURITY KEY",
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF7C3AED),
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: Colors.grey.shade200),
-                                          ),
-                                          child: Text(
-                                            displayedKey,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF1F2937),
-                                              letterSpacing: 1.2,
+                                  const SizedBox(height: 50),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF9F5FF),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(color: const Color(0xFFE9D5FF)),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFFE0E7FF),
+                                              shape: BoxShape.circle,
                                             ),
-                                            textAlign: TextAlign.center,
+                                            child: const Icon(
+                                              Icons.key_rounded,
+                                              color: Color(0xFF7C3AED),
+                                              size: 24,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(height: 6),
+                                          const Text(
+                                            "YOUR SECURITY KEY",
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF7C3AED),
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.grey.shade200),
+                                            ),
+                                            child: Text(
+                                              displayedKey,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF1F2937),
+                                                letterSpacing: 1.2,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-
                                   SizedBox(height: height * 0.015),
-
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                     children: [
-                                      const Icon(
-                                        Icons.access_alarm_rounded,
-                                        size: 45,
-                                        color: Colors.orange,
+                                      SizedBox(
+                                        width: 126,
+                                        height: 80,
+                                        child: Image.asset(
+                                          'assets/images/Alarm_Clock.gif',
+                                          fit: BoxFit.contain,
+                                        ),
                                       ),
                                       Stack(
                                         alignment: Alignment.center,
                                         children: [
-                                          const SizedBox(
+                                          SizedBox(
                                             width: 50,
                                             height: 50,
                                             child: CircularProgressIndicator(
-                                              value: 0.75,
+                                              value: progressValue,
                                               strokeWidth: 5,
-                                              backgroundColor: Colors.grey,
+                                              backgroundColor: Colors.grey.shade300,
                                               color: Colors.green,
                                             ),
                                           ),
@@ -257,9 +305,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                       ),
                                     ],
                                   ),
-
                                   SizedBox(height: height * 0.015),
-
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(10),
@@ -268,8 +314,8 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: const Color(0xFFC7D2FE)),
                                     ),
-                                    child: Column(
-                                      children: const [
+                                    child: const Column(
+                                      children: [
                                         Text(
                                           "Key Expiration Alert",
                                           style: TextStyle(
@@ -290,19 +336,14 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                       ],
                                     ),
                                   ),
-
                                   SizedBox(height: height * 0.015),
-
                                   if (errorMessage != null &&
                                       errorMessage!.contains('No internet connection'))
                                     SizedBox(
                                       height: 70,
                                       child: NoInternetWidget(
                                         onRetry: () {
-                                          setState(() {
-                                            errorMessage = null;
-                                          });
-                                          _onGenerateKeyClicked();
+                                          _generateKey();
                                         },
                                       ),
                                     )
@@ -316,9 +357,35 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                           textAlign: TextAlign.center,
                                         ),
                                       ),
-                                    AuthButton(
-                                      title: "Generate Key",
-                                      onTap: _onGenerateKeyClicked,
+                                    Opacity(
+                                      opacity: isButtonEnabled ? 1.0 : 0.8,
+                                      child: GestureDetector(
+                                        onTap: isButtonEnabled ? _generateKey : null,
+                                        child: Container(
+                                          width: double.infinity,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(12),
+                                            gradient: isButtonEnabled
+                                                ? AppTheme.loginGradient
+                                                : const LinearGradient(
+                                              colors: [Color(0xFF949494), Color(0xFFCACACA)],
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                            ),
+                                          ),
+                                          child: const Center(
+                                            child: Text(
+                                              "Generate New Key",
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                     SizedBox(height: height * 0.008),
                                     const AuthFooter(),

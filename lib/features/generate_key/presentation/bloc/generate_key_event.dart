@@ -1,3 +1,4 @@
-abstract class GenerateKeyComparisonEvent {}
 
-class RequestGenerateKeyEvent extends GenerateKeyComparisonEvent {}
+abstract class GenerateKeyEvent {}
+
+class RequestGenerateKeyEvent extends GenerateKeyEvent {}
