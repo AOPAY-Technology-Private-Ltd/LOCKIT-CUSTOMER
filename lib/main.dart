@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/di/injection.dart' as di;
 import 'core/constants/routes/app_router.dart';
@@ -20,13 +21,16 @@ Future<void> _initializeFCMToken() async {
   try {
     final prefs = await SharedPreferences.getInstance();
 
-    String fcmToken = "YOUR_HARDCODED_FCM_TOKEN_HERE_ABC123XYZ";
+    String? fcmToken = await FirebaseMessaging.instance.getToken();
 
-    await prefs.setString('fcm_token', fcmToken);
-    print("MAIN.DART - Hardcoded FCM Token successfully saved: $fcmToken");
-
+    if (fcmToken != null && fcmToken.isNotEmpty) {
+      await prefs.setString('fcm_token', fcmToken);
+      print("MAIN.DART - Real FCM Token successfully saved: $fcmToken");
+    } else {
+      print("MAIN.DART - FCM Token is null or empty");
+    }
   } catch (e) {
-    print("MAIN.DART - Error saving hardcoded token: $e");
+    print("MAIN.DART - Error fetching FCM token: $e");
   }
 }
 

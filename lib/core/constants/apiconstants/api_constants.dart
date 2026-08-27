@@ -13,6 +13,11 @@ class ApiConstants {
 
   static const String getUpdateCustomerKitProfile = '$mainBaseUrl/api/V1/AopayFinance/GetUpdateCustomerKitProfile';
 
+  static const String generateKeyApi = '$mainBaseUrl/api/V1/AopayFinance/generatekey';
+
+
+
+
   static const String sendSms = '$smsBaseUrl/vb/apikey.php';
 }
 

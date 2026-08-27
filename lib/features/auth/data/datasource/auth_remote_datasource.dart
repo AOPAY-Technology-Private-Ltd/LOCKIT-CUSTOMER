@@ -9,6 +9,8 @@ import '../models/login_response_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
+
 
 abstract class AuthRemoteDatasource {
   Future<LoginResponseModel> login({
@@ -97,12 +99,14 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   }
 
   @override
+
   Future<LoginResponseModel> login({
     required String mobileOrEmailID,
     String password = "",
     String loginType = "Customer",
   }) async {
     final bool hasConnection = await NetworkService.hasInternet();
+
     if (!hasConnection) {
       throw Exception('No internet connection');
     }
@@ -110,47 +114,132 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     final uri = Uri.parse(ApiConstants.Login);
     final prefs = await SharedPreferences.getInstance();
 
+
     try {
       if (Platform.isIOS) {
         await Future.delayed(const Duration(seconds: 1));
-        String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-        print("APNS Token: $apnsToken");
+
+        final String? apnsToken =
+        await FirebaseMessaging.instance.getAPNSToken();
+
+        print("📱 APNS Token: $apnsToken");
       }
 
-      String? fcmToken = await FirebaseMessaging.instance.getToken();
+      final String? fcmToken =
+      await FirebaseMessaging.instance.getToken();
+
       if (fcmToken != null && fcmToken.isNotEmpty) {
         await prefs.setString('fcm_token', fcmToken);
-        print("FCM Token fetched successfully: $fcmToken");
+
+        print("✅ FCM Token fetched successfully");
+        print("FCM Token: $fcmToken");
       }
     } catch (e) {
-      print("Error fetching FCM token during login: $e");
+      print("❌ Error fetching FCM token during login: $e");
     }
 
-    String deviceId = prefs.getString('device_id') ?? '';
-    String imeiNumber = prefs.getString('imei_number') ?? '';
 
-    if (deviceId.isEmpty || imeiNumber.isEmpty) {
-      try {
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = androidInfo.id;
-          imeiNumber = androidInfo.id;
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = iosInfo.identifierForVendor ?? 'ios_device_id';
-          imeiNumber = iosInfo.identifierForVendor ?? 'ios_imei_placeholder';
+    String deviceId = '';
+    String imeiNumber = '';
+
+    try {
+      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+
+
+        deviceId = androidInfo.id;
+
+        print("----------------------------------------");
+        print("📱 Android Device ID: $deviceId");
+
+
+        try {
+          const MethodChannel platform =
+          MethodChannel('com.bosoq.device_owner/imei');
+
+          final String? nativeImei =
+          await platform.invokeMethod<String>('getImei');
+
+          if (nativeImei != null &&
+              nativeImei.trim().isNotEmpty &&
+              nativeImei.trim() != "UNKNOWN") {
+            imeiNumber = nativeImei.trim();
+
+            print("✅ REAL IMEI FROM NATIVE: $imeiNumber");
+          } else {
+            imeiNumber = '';
+
+            print("❌ Native Android returned EMPTY IMEI");
+          }
+        } on PlatformException catch (e) {
+          imeiNumber = '';
+
+          print(
+            "❌ IMEI PlatformException"
+                "\nCode: ${e.code}"
+                "\nMessage: ${e.message}"
+                "\nDetails: ${e.details}",
+          );
+        } catch (e) {
+          imeiNumber = '';
+
+          print("❌ Native IMEI Exception: $e");
         }
 
-        await prefs.setString('device_id', deviceId);
-        await prefs.setString('imei_number', imeiNumber);
-      } catch (e) {
-        deviceId = "UNKNOWN_DEVICE_ID";
-        imeiNumber = "UNKNOWN_IMEI";
+
+
+        if (imeiNumber.isEmpty) {
+          print(
+            "⚠️ REAL IMEI AVAILABLE NAHI HAI."
+                "\n⚠️ androidInfo.id ko IMEI ke roop mein use NAHI kiya jayega.",
+          );
+        }
       }
+
+
+
+      else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+
+        deviceId =
+            iosInfo.identifierForVendor ?? 'ios_device_id';
+
+        imeiNumber = '';
+
+        print("📱 iOS Device ID: $deviceId");
+        print("📟 iOS IMEI: Not available");
+      }
+
+
+
+      await prefs.setString('device_id', deviceId);
+      await prefs.setString('imei_number', imeiNumber);
+
+    } catch (e) {
+      print("❌ Device information error: $e");
+
+      deviceId = "UNKNOWN_DEVICE_ID";
+      imeiNumber = "";
+
+      await prefs.setString('device_id', deviceId);
+      await prefs.setString('imei_number', imeiNumber);
     }
 
-    final String token = prefs.getString('fcm_token') ?? '';
+
+
+    print("----------------------------------------");
+    print("📱 FINAL Device ID: $deviceId");
+    print("📟 FINAL REAL IMEI: $imeiNumber");
+    print("----------------------------------------");
+
+
+
+    final String token =
+        prefs.getString('fcm_token') ?? '';
+
+
 
     final requestBody = {
       "mobileOrEmailID": mobileOrEmailID,
@@ -161,9 +250,18 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       "imeiNumber": imeiNumber,
     };
 
-    print('--- LOGIN API REQUEST ---');
-    print('URL: $uri');
-    print('Request Body: ${jsonEncode(requestBody)}');
+
+
+    print("----------------------------------------");
+    print("--- LOGIN API REQUEST ---");
+    print("URL: $uri");
+    print("Device ID: $deviceId");
+    print("REAL IMEI: $imeiNumber");
+    print("Token: $token");
+    print("Request Body: ${jsonEncode(requestBody)}");
+    print("----------------------------------------");
+
+
 
     final response = await ApiClient.post(
       uri,
@@ -174,36 +272,53 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       body: jsonEncode(requestBody),
     );
 
-    print('--- LOGIN API RESPONSE ---');
-    print('Status Code: ${response.statusCode}');
-    print('Response Body: ${response.body}');
+
+
+    print("----------------------------------------");
+    print("--- LOGIN API RESPONSE ---");
+    print("Status Code: ${response.statusCode}");
+    print("Response Body: ${response.body}");
+    print("----------------------------------------");
 
     try {
       final responseData = jsonDecode(response.body);
 
-      if (responseData['statuss'] == 'False' || responseData['statuss'] == false) {
-        String rawMessage = responseData['message']?.toString() ?? '';
+      if (responseData['statuss'] == 'False' ||
+          responseData['statuss'] == false) {
+        final String rawMessage =
+            responseData['message']?.toString() ?? '';
 
         String userMessage = rawMessage;
-        if (rawMessage.isEmpty || rawMessage == 'clientCode' || rawMessage.length <= 3) {
-          userMessage = 'Something went wrong. Please check your details or try again later.';
+
+        if (rawMessage.isEmpty ||
+            rawMessage == 'clientCode' ||
+            rawMessage.length <= 3) {
+          userMessage =
+          'Something went wrong. Please check your details or try again later.';
         }
 
         throw Exception(userMessage);
       }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200 ||
+          response.statusCode == 201) {
         return LoginResponseModel(
-          message: responseData['message'] ?? "Login Successful",
+          message:
+          responseData['message'] ?? "Login Successful",
         );
       } else {
-        throw Exception("Login failed. Please try again.");
+        throw Exception(
+          "Login failed. Please try again.",
+        );
       }
     } catch (e) {
       if (e is Exception) {
         rethrow;
       }
-      throw Exception("Failed to process login response.");
+
+      throw Exception(
+        "Failed to process login response.",
+      );
     }
   }
 

@@ -7,6 +7,7 @@ class SessionManager {
   static const String _keyEmailID = 'email_id';
   static const String _keyFirstName = 'first_name';
   static const String _keyLastName = 'last_name';
+  static const String _keyFcmToken = 'fcm_token';
 
   static Future<void> createSession({
     required String customerCode,
@@ -32,6 +33,11 @@ class SessionManager {
   static Future<String?> getCustomerCode() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyCustomerCode);
+  }
+
+  static Future<String> getFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyFcmToken) ?? '';
   }
 
   static Future<void> clearSession() async {

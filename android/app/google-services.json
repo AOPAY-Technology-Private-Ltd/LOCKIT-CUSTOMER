@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "321828019710",
+    "project_id": "lockit-customer",
+    "storage_bucket": "lockit-customer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:321828019710:android:f71631d6c9d7cdaebe74af",
+        "android_client_info": {
+          "package_name": "com.aopay.lockitCustomer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALYlPSR1KTj_461AcnZM85qzrQP_V9rLo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

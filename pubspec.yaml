@@ -28,17 +28,16 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-
   flutter_lints: ^6.0.0
-
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
-
-
   uses-material-design: true
 
   assets:
     - assets/images/
 
-
+flutter_launcher_icons:
+  image_path: "assets/images/appi_con.png"
+  android: true
+  ios: true

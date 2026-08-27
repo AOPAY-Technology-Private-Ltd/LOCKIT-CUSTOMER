@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../../core/constants/apiconstants/api_constants.dart';
 import '../models/generate_key_model.dart';
 
 abstract class GenerateKeyRemoteDataSource {
@@ -11,7 +12,7 @@ class GenerateKeyRemoteDataSourceImpl implements GenerateKeyRemoteDataSource {
 
   @override
   Future<GenerateKeyModel> generateKeyApi() async {
-    const url = 'https://uatapi.aopay.co.in/api/V1/AopayFinance/generatekey';
+    const url = ApiConstants.generateKeyApi;
 
     final headers = {
       'accept': '*/*',

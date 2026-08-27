@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../core/network/network_service.dart';
+import '../../../../../core/constants/routes/route_names.dart';
 import '../../../../auth/presentation/common/widgets/auth_footer.dart';
 import '../../../../auth/presentation/common/widgets/auth_logo.dart';
 import '../../../../auth/presentation/common/widgets/curved_top_container.dart';
@@ -43,6 +45,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
       remainingSeconds = 0;
     }
   }
+
   void _generateKey() async {
     debugPrint("--- [SecurityKeyView] Generate New Key Button Clicked! ---");
 
@@ -79,6 +82,10 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
         });
       } else {
         _timer?.cancel();
+
+        if (mounted) {
+          context.goNamed(RouteNames.profile);
+        }
       }
     });
   }
