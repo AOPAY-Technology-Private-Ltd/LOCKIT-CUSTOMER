@@ -3,6 +3,7 @@ import '../../domain/entities/entities.dart';
 class LoginResponseModel extends AuthEntity {
   final String? customerCode;
   final String? retailerCode;
+  final String? clientcode;
   final String? firstName;
   final String? lastName;
   final String? mobileNo;
@@ -16,6 +17,7 @@ class LoginResponseModel extends AuthEntity {
     required String message,
     this.customerCode,
     this.retailerCode,
+    this.clientcode,
     this.firstName,
     this.lastName,
     this.mobileNo,
@@ -31,6 +33,7 @@ class LoginResponseModel extends AuthEntity {
       message: json['message'] ?? "",
       customerCode: json['customerCode'] ?? json['value'],
       retailerCode: json['retailerCode'],
+      clientcode: json['clientcode'],
       firstName: json['firstName'],
       lastName: json['lastName'],
       mobileNo: json['mobileNo'],
@@ -47,6 +50,7 @@ class LoginResponseModel extends AuthEntity {
       "message": message,
       "customerCode": customerCode,
       "retailerCode": retailerCode,
+      "clientcode": clientcode,
       "firstName": firstName,
       "lastName": lastName,
       "mobileNo": mobileNo,

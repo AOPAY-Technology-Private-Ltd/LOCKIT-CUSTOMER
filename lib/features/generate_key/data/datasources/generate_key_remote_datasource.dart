@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/apiconstants/api_constants.dart';
+import '../../../../core/services/session_manager.dart';
 import '../models/generate_key_model.dart';
 
 abstract class GenerateKeyRemoteDataSource {
@@ -19,8 +20,12 @@ class GenerateKeyRemoteDataSourceImpl implements GenerateKeyRemoteDataSource {
       'Content-Type': 'application/json',
     };
 
+    final String fcmToken = await SessionManager.getFcmToken();
+    final String clientcode = await SessionManager.getClientCode() ?? '';
+
     final requestBody = {
-      "fcmToken": "7852sdsdsdsd"
+      "fcmToken": fcmToken,
+      "clientcode": clientcode,
     };
 
     print('==============================');

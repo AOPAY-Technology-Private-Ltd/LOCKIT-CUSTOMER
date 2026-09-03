@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.annotation.NonNull
@@ -14,7 +15,8 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "com.bosoq.device_owner/imei"
+    private val IMEI_CHANNEL = "com.bosoq.device_owner/imei"
+    private val SIM_CHANNEL = "com.bosoq.device_owner/sim_info"
 
     override fun configureFlutterEngine(
         @NonNull flutterEngine: FlutterEngine
@@ -23,42 +25,27 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            CHANNEL
+            IMEI_CHANNEL
         ).setMethodCallHandler { call, result ->
-
             if (call.method == "getImei") {
-
-                Log.d("REAL_IMEI", "================================")
-                Log.d("REAL_IMEI", "getImei() called from Flutter")
-                Log.d("REAL_IMEI", "Android SDK: ${Build.VERSION.SDK_INT}")
-                Log.d("REAL_IMEI", "Device: ${Build.MANUFACTURER} ${Build.MODEL}")
-                Log.d("REAL_IMEI", "================================")
-
                 val imei = getRealImei()
-
                 if (!imei.isNullOrEmpty()) {
-
-                    Log.d(
-                        "REAL_IMEI",
-                        "SUCCESS - REAL IMEI: $imei"
-                    )
-
                     result.success(imei)
-
                 } else {
-
-                    Log.e(
-                        "REAL_IMEI",
-                        "FAILED - REAL IMEI NOT AVAILABLE"
-                    )
-
-                    result.error(
-                        "UNAVAILABLE",
-                        "IMEI not available or permission denied",
-                        null
-                    )
+                    result.error("UNAVAILABLE", "IMEI not available or permission denied", null)
                 }
+            } else {
+                result.notImplemented()
+            }
+        }
 
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SIM_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            if (call.method == "getSimInfo") {
+                val simData = getSimDetails()
+                result.success(simData)
             } else {
                 result.notImplemented()
             }
@@ -66,10 +53,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getRealImei(): String? {
-
         try {
-
-
             val phoneStatePermission =
                 ContextCompat.checkSelfPermission(
                     this,
@@ -77,143 +61,106 @@ class MainActivity : FlutterActivity() {
                 )
 
             if (phoneStatePermission != PackageManager.PERMISSION_GRANTED) {
-
-                Log.e(
-                    "REAL_IMEI",
-                    "READ_PHONE_STATE permission NOT GRANTED"
-                )
-
                 return null
             }
-
-            Log.d(
-                "REAL_IMEI",
-                "READ_PHONE_STATE permission GRANTED"
-            )
-
 
             val telephonyManager =
-                getSystemService(
-                    Context.TELEPHONY_SERVICE
-                ) as TelephonyManager
-
-            Log.d(
-                "REAL_IMEI",
-                "Phone count: ${telephonyManager.phoneCount}"
-            )
-
+                getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-
-
                 try {
-
-                    val imei0 =
-                        telephonyManager.getImei(0)
-
-                    Log.d(
-                        "REAL_IMEI",
-                        "IMEI slot 0: $imei0"
-                    )
-
-                    if (!imei0.isNullOrEmpty()) {
-                        return imei0
-                    }
-
-                } catch (e: SecurityException) {
-
-                    Log.e(
-                        "REAL_IMEI",
-                        "SecurityException slot 0: ${e.message}",
-                        e
-                    )
-
-                } catch (e: Exception) {
-
-                    Log.e(
-                        "REAL_IMEI",
-                        "Exception slot 0: ${e.message}",
-                        e
-                    )
-                }
-
-
+                    val imei0 = telephonyManager.getImei(0)
+                    if (!imei0.isNullOrEmpty()) return imei0
+                } catch (e: Exception) {}
 
                 if (telephonyManager.phoneCount > 1) {
-
                     try {
-
-                        val imei1 =
-                            telephonyManager.getImei(1)
-
-                        Log.d(
-                            "REAL_IMEI",
-                            "IMEI slot 1: $imei1"
-                        )
-
-                        if (!imei1.isNullOrEmpty()) {
-                            return imei1
-                        }
-
-                    } catch (e: SecurityException) {
-
-                        Log.e(
-                            "REAL_IMEI",
-                            "SecurityException slot 1: ${e.message}",
-                            e
-                        )
-
-                    } catch (e: Exception) {
-
-                        Log.e(
-                            "REAL_IMEI",
-                            "Exception slot 1: ${e.message}",
-                            e
-                        )
-                    }
+                        val imei1 = telephonyManager.getImei(1)
+                        if (!imei1.isNullOrEmpty()) return imei1
+                    } catch (e: Exception) {}
                 }
-
-                Log.e(
-                    "REAL_IMEI",
-                    "No IMEI returned from any SIM slot"
-                )
-
                 return null
             }
 
-
-
             @Suppress("DEPRECATION")
-            val oldImei =
-                telephonyManager.deviceId
-
-            Log.d(
-                "REAL_IMEI",
-                "Legacy deviceId: $oldImei"
-            )
-
-            return oldImei
-
-        } catch (e: SecurityException) {
-
-            Log.e(
-                "REAL_IMEI",
-                "SECURITY EXCEPTION: ${e.message}",
-                e
-            )
-
-            return null
-
+            return telephonyManager.deviceId
         } catch (e: Exception) {
-
-            Log.e(
-                "REAL_IMEI",
-                "IMEI ERROR: ${e.message}",
-                e
-            )
-
             return null
         }
+    }
+
+    private fun getSimDetails(): Map<String, Any> {
+        val map = mutableMapOf<String, Any>()
+        try {
+            val phoneStatePermission = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_PHONE_STATE
+            )
+
+            if (phoneStatePermission != PackageManager.PERMISSION_GRANTED) {
+                map["carrierName"] = ""
+                map["mcc"] = ""
+                map["mnc"] = ""
+                map["slotIndex"] = 0
+                map["subscriptionId"] = 0
+                map["serialNumber"] = "unknown"
+                return map
+            }
+
+            var carrierName = ""
+            var mcc = ""
+            var mnc = ""
+            var slotIndex = 0
+            var subscriptionId = 0
+
+            try {
+                val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
+                val subscriptionInfoList = subscriptionManager?.activeSubscriptionInfoList
+
+                if (!subscriptionInfoList.isNullOrEmpty()) {
+                    val info = subscriptionInfoList[0]
+                    slotIndex = info.simSlotIndex
+                    subscriptionId = info.subscriptionId
+                    mcc = info.mccString ?: ""
+                    mnc = info.mncString ?: ""
+
+                    val telephonyManager = (context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager)
+                        .createForSubscriptionId(info.subscriptionId)
+
+                    carrierName = telephonyManager.simOperatorName.ifEmpty { info.carrierName?.toString() ?: "" }
+                }
+            } catch (e: Exception) {
+                Log.e("SIM_INFO", "SubscriptionManager error: ${e.message}")
+            }
+
+            if (carrierName.isEmpty() || mcc.isEmpty()) {
+                val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                if (carrierName.isEmpty()) {
+                    carrierName = tm.simOperatorName ?: tm.networkOperatorName ?: ""
+                }
+                val simOperator = tm.simOperator.ifEmpty { tm.networkOperator ?: "" }
+                if (simOperator.length >= 5) {
+                    if (mcc.isEmpty()) mcc = simOperator.substring(0, 3)
+                    if (mnc.isEmpty()) mnc = simOperator.substring(3)
+                }
+            }
+
+            map["carrierName"] = carrierName
+            map["mcc"] = mcc
+            map["mnc"] = mnc
+            map["slotIndex"] = slotIndex
+            map["subscriptionId"] = subscriptionId
+            map["serialNumber"] = "unknown"
+
+        } catch (e: Exception) {
+            Log.e("SIM_INFO", "Error: ${e.message}")
+            map["carrierName"] = ""
+            map["mcc"] = ""
+            map["mnc"] = ""
+            map["slotIndex"] = 0
+            map["subscriptionId"] = 0
+            map["serialNumber"] = "unknown"
+        }
+        return map
     }
 }

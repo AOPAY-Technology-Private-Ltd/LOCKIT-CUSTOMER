@@ -8,6 +8,8 @@ class SessionManager {
   static const String _keyFirstName = 'first_name';
   static const String _keyLastName = 'last_name';
   static const String _keyFcmToken = 'fcm_token';
+  static const String _keyRetailerCode = 'retailer_code';
+  static const String _keyClientCode = 'client_code';
 
   static Future<void> createSession({
     required String customerCode,
@@ -15,6 +17,8 @@ class SessionManager {
     required String emailID,
     String? firstName,
     String? lastName,
+    String? retailerCode,
+    String? clientcode,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyIsLoggedIn, true);
@@ -23,6 +27,8 @@ class SessionManager {
     await prefs.setString(_keyEmailID, emailID);
     if (firstName != null) await prefs.setString(_keyFirstName, firstName);
     if (lastName != null) await prefs.setString(_keyLastName, lastName);
+    if (retailerCode != null) await prefs.setString(_keyRetailerCode, retailerCode);
+    if (clientcode != null) await prefs.setString(_keyClientCode, clientcode);
   }
 
   static Future<bool> isLoggedIn() async {
@@ -33,6 +39,16 @@ class SessionManager {
   static Future<String?> getCustomerCode() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyCustomerCode);
+  }
+
+  static Future<String?> getRetailerCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyRetailerCode);
+  }
+
+  static Future<String?> getClientCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyClientCode);
   }
 
   static Future<String> getFcmToken() async {

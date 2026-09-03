@@ -34,6 +34,7 @@ class _OtpVerificationViewState
     extends State<OtpVerificationView> {
   final TextEditingController otpController = TextEditingController();
   String? errorMessage;
+  bool _isVerifying = false;
 
   Timer? _timer;
   int _start = 30;
@@ -89,6 +90,8 @@ class _OtpVerificationViewState
   }
 
   Future<void> _verifyOtp() async {
+    if (_isVerifying) return;
+
     final bool hasConnection = await NetworkService.hasInternet();
     if (!hasConnection) {
       setState(() {
@@ -107,6 +110,7 @@ class _OtpVerificationViewState
 
     setState(() {
       errorMessage = null;
+      _isVerifying = true;
     });
 
     if (!mounted) return;
@@ -155,6 +159,12 @@ class _OtpVerificationViewState
             onTap: () => FocusScope.of(context).unfocus(),
             child: BlocListener<OtpBloc, OtpState>(
               listener: (context, state) {
+                if (state is OtpFailure || state is OtpSuccess) {
+                  setState(() {
+                    _isVerifying = false;
+                  });
+                }
+
                 if (state is OtpFailure) {
                   setState(() {
                     errorMessage = state.error;

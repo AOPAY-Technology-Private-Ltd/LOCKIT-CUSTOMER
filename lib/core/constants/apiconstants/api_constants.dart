@@ -15,6 +15,8 @@ class ApiConstants {
 
   static const String generateKeyApi = '$mainBaseUrl/api/V1/AopayFinance/generatekey';
 
+  static const String saveCustomerLocationKit = '$mainBaseUrl/api/V1/AopayFinance/SaveCustomerLocationKit';
+
 
 
 
