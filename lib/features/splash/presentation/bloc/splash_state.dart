@@ -11,3 +11,7 @@ class SplashCompleted extends SplashState {
 class SplashNavigateToHome extends SplashState {
   SplashNavigateToHome();
 }
+
+class SplashNavigateToGenerateKey extends SplashState {
+  SplashNavigateToGenerateKey();
+}

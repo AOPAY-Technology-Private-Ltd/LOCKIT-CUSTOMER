@@ -9,12 +9,12 @@ import '../../../../core/constants/apiconstants/api_constants.dart';
 import '../../../../core/helper/api_client.dart';
 import '../../../../core/services/session_manager.dart';
 import '../../../../core/network/network_service.dart';
+import '../../../../core/utils/device_action_channel.dart';
 import '../models/login_response_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 abstract class AuthRemoteDatasource {
   Future<LoginResponseModel> login({
@@ -49,28 +49,81 @@ class AppMasterService {
 
       List<AppInfo> apps = await InstalledApps.getInstalledApps(true, false);
 
-      List<Map<String, dynamic>> appList = apps.map((app) {
-        return {
+      Map<String, List<Map<String, dynamic>>> categorizedApps = {
+        "SOCIAL_APPS": [],
+        "UPI_APPS": [],
+        "GAMING_APPS": [],
+        "AUDIO_APPS": [],
+        "IMAGE_APPS": [],
+        "MAP_APPS": [],
+        "NEWS_APPS": [],
+        "VIDEO_APPS": [],
+        "PRODUCTIVITY_APPS": [],
+        "TRUECALLER_APPS": [],
+        "UNDEFINED_APPS": [],
+      };
+
+      for (var app in apps) {
+        String packageName = (app.packageName ?? '').toLowerCase();
+        String appName = (app.name ?? '').toLowerCase();
+
+        String targetCategory = "UNDEFINED_APPS";
+
+        if (packageName.contains('whatsapp') || packageName.contains('facebook') || packageName.contains('instagram') || packageName.contains('telegram') || packageName.contains('twitter') || packageName.contains('snapchat')) {
+          targetCategory = "SOCIAL_APPS";
+        } else if (packageName.contains('upi') || packageName.contains('paytm') || packageName.contains('phonepe') || packageName.contains('gpay') || packageName.contains('google.android.apps.wallet') || packageName.contains('bank')) {
+          targetCategory = "UPI_APPS";
+        } else if (packageName.contains('game') || packageName.contains('play') || appName.contains('game')) {
+          targetCategory = "GAMING_APPS";
+        } else if (packageName.contains('audio') || packageName.contains('music') || packageName.contains('spotify') || packageName.contains('gaana') || packageName.contains('wynk')) {
+          targetCategory = "AUDIO_APPS";
+        } else if (packageName.contains('camera') || packageName.contains('gallery') || packageName.contains('photo') || packageName.contains('image')) {
+          targetCategory = "IMAGE_APPS";
+        } else if (packageName.contains('map') || packageName.contains('navigation') || packageName.contains('gps')) {
+          targetCategory = "MAP_APPS";
+        } else if (packageName.contains('news') || packageName.contains('aajtak') || packageName.contains('ndtv')) {
+          targetCategory = "NEWS_APPS";
+        } else if (packageName.contains('video') || packageName.contains('youtube') || packageName.contains('netflix') || packageName.contains('hotstar') || packageName.contains('prime')) {
+          targetCategory = "VIDEO_APPS";
+        } else if (packageName.contains('office') || packageName.contains('document') || packageName.contains('pdf') || packageName.contains('productivity')) {
+          targetCategory = "PRODUCTIVITY_APPS";
+        } else if (packageName.contains('truecaller')) {
+          targetCategory = "TRUECALLER_APPS";
+        }
+
+        categorizedApps[targetCategory]!.add({
           "appName": app.name ?? '',
           "packageName": app.packageName ?? '',
-        };
-      }).toList();
+        });
+      }
+
+      List<Map<String, dynamic>> categoriesPayload = [];
+
+      categorizedApps.forEach((catKey, appList) {
+        if (appList.isNotEmpty) {
+          categoriesPayload.add({
+            "category": catKey,
+            "apps": appList,
+          });
+        }
+      });
 
       final requestBody = {
         "createdBy": customerCode,
-        "categories": [
-          {
-            "category": "INSTALLED_APPS",
-            "apps": appList,
-          }
-        ]
+        "categories": categoriesPayload,
       };
 
-      final url = Uri.parse('https://uatapi.aopay.co.in/api/notification/SaveAppMaster');
+      final url = Uri.parse(ApiConstants.AppMasterService);
+      final String encodedBody = jsonEncode(requestBody);
 
-      print('--- 🚀 SENDING INSTALLED APPS ---');
+      print('--- 🚀 SENDING CATEGORIZED INSTALLED APPS ---');
       print('URL: $url');
-      print('Total Apps Found: ${appList.length}');
+      print('Total Categories: ${categoriesPayload.length}');
+
+      print('--- 📦 REQUEST BODY START ---');
+      final pattern = RegExp('.{1,800}');
+      pattern.allMatches(encodedBody).forEach((match) => print('BODY PART: ${match.group(0)}'));
+      print('--- 📦 REQUEST BODY END ---');
 
       final response = await http.post(
         url,
@@ -78,7 +131,7 @@ class AppMasterService {
           'accept': '*/*',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode(requestBody),
+        body: encodedBody,
       );
 
       print('--- 📥 SAVE APP MASTER RESPONSE ---');
@@ -91,6 +144,7 @@ class AppMasterService {
     }
   }
 }
+
 
 class DeviceInformationService {
   static Future<void> sendDeviceInformation() async {
@@ -147,7 +201,7 @@ class DeviceInformationService {
       String appVersion = packageInfo.version;
 
       final requestBody = {
-        "imeiNumber": "",
+        "imeiNumber": imeiNumber,
         "deviceID": androidInfo?.id ?? "",
         "manufacturer": androidInfo?.manufacturer ?? "",
         "model": androidInfo?.model ?? "",
@@ -165,7 +219,7 @@ class DeviceInformationService {
         "slotIndex": slotIndex
       };
 
-      final url = Uri.parse('https://uatapi.aopay.co.in/api/V1/AopayFinance/GetDeviceInformation');
+      final url = Uri.parse(ApiConstants.DeviceInformationService);
       final String encodedBody = jsonEncode(requestBody);
 
       print('--- 🚀 SENDING DEVICE INFORMATION ---');
@@ -191,6 +245,234 @@ class DeviceInformationService {
       print('--- ❌ DEVICE INFO ERROR ---');
       print('Error: $e');
       print('StackTrace: $stackTrace');
+    }
+  }
+}
+
+class PendingActionService {
+  static Future<void> checkPendingDeviceActions() async {
+    try {
+      final customerCode = await SessionManager.getCustomerCode() ?? '';
+      final clientCode = await SessionManager.getClientCode() ?? '';
+
+      if (customerCode.isEmpty || clientCode.isEmpty) {
+        print('❌ CustomerCode or ClientCode is empty');
+        return;
+      }
+
+      final url = Uri.parse(ApiConstants.PendingActionService);
+
+      final requestBody = {
+        "customerCode": customerCode,
+        "clientcode": clientCode,
+      };
+
+      print('--- 🚀 CHECKING PENDING DEVICE ACTIONS ---');
+      print('URL: $url');
+      print('Request Body: ${jsonEncode(requestBody)}');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('--- 📥 PENDING DEVICE ACTIONS RESPONSE ---');
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        print('❌ Pending action API failed');
+        return;
+      }
+
+      final decoded = jsonDecode(response.body);
+
+      final bool apiStatus = decoded is Map && (decoded['status'] == true || decoded['status'] == 'true');
+
+      if (!apiStatus) {
+        print('❌ Pending API status is false');
+        return;
+      }
+
+      final List dataList = decoded['data'] is List ? decoded['data'] : [];
+      print('--- 📊 TOTAL PENDING ACTIONS: ${dataList.length} ---');
+
+      for (final actionItem in dataList) {
+        final int rid = int.tryParse(actionItem['rid']?.toString() ?? '0') ?? 0;
+        final String notificationCode = actionItem['notificationCode']?.toString() ?? '';
+        final List selectedApps = actionItem['selectedApps'] is List ? actionItem['selectedApps'] : [];
+
+        print('🔔 Processing RID: $rid | Notification: $notificationCode');
+
+        bool allAppsExecuted = true;
+
+        for (final app in selectedApps) {
+          final String packageName = app['packageName']?.toString() ?? '';
+          final String actionType = app['action']?.toString() ?? '';
+
+          print('👉 Executing Package: $packageName | Action: $actionType');
+
+          try {
+            await DeviceActionChannel.performAction(
+              notificationCode: notificationCode,
+              packageName: packageName,
+              action: actionType,
+            ).timeout(const Duration(seconds: 10));
+
+            print('✅ Successfully executed: $packageName');
+          } catch (e) {
+            allAppsExecuted = false;
+            print('❌ Error executing package $packageName: $e');
+          }
+        }
+
+        if (rid > 0) {
+          print('--- 🔄 INITIATING SERVER UPDATE FOR RID $rid ---');
+
+          final bool isUpdated = await UpdateDeviceActionService.updateDeviceActionStatus(
+            rid: rid,
+            executionStatus: allAppsExecuted ? "Success" : "Failed",
+            failureReason: allAppsExecuted ? "" : "Error executing some apps",
+            updatedBy: customerCode,
+            devicePin: "",
+          );
+
+          print('--- 📥 SERVER UPDATE RESULT FOR RID $rid: $isUpdated ---');
+        } else {
+          print('❌ RID is invalid ($rid), skipping update API.');
+        }
+      }
+    } catch (e, stackTrace) {
+      print('--- ❌ PENDING DEVICE ACTIONS ERROR ---');
+      print('Error: $e');
+      print('StackTrace: $stackTrace');
+    }
+  }
+}
+
+class AppUninstalledService {
+  static Future<void> sendAppUninstalledNotification() async {
+    try {
+      final clientCode = await SessionManager.getClientCode() ?? '';
+      final retailerCode = await SessionManager.getRetailerCode() ?? '';
+      final customerCode = await SessionManager.getCustomerCode() ?? '';
+
+      if (customerCode.isEmpty) return;
+
+      final url = Uri.parse(ApiConstants.AppUninstalledService);
+
+      final requestBody = {
+        "clientCode": clientCode,
+        "retailerCode": retailerCode,
+        "customerCode": customerCode,
+        "appName": "LockitCustomer",
+        "packageName": "com.aopay.lockitCustomer",
+        "eventTime": DateTime.now().toUtc().toIso8601String(),
+      };
+
+      print('--- 🚀 SENDING APP UNINSTALLED NOTIFICATION ---');
+      print('URL: $url');
+      print('Request Body: ${jsonEncode(requestBody)}');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('--- 📥 APP UNINSTALLED RESPONSE ---');
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+    } catch (e) {
+      print('--- ❌ APP UNINSTALLED ERROR ---');
+      print('Error: $e');
+    }
+  }
+}
+
+
+
+class UpdateDeviceActionService {
+  static Future<bool> updateDeviceActionStatus({
+    required int rid,
+    required String executionStatus,
+    required String failureReason,
+    required String updatedBy,
+    required String devicePin,
+    String iccid = "",
+    int subscriptionId = 0,
+    String carrierName = "",
+    String mcc = "",
+    String mnc = "",
+    int slotIndex = 0,
+  }) async {
+    try {
+      final url = Uri.parse('https://uatapi.aopay.co.in/api/notification/UpdateDeviceActionStatus');
+
+      final requestBody = {
+        "rid": rid,
+        "executionStatus": executionStatus,
+        "failureReason": failureReason,
+        "updatedBy": updatedBy,
+        "devicePin": devicePin,
+        "iccid": iccid,
+        "subscriptionId": subscriptionId,
+        "carrierName": carrierName,
+        "mcc": mcc,
+        "mnc": mnc,
+        "slotIndex": slotIndex,
+      };
+
+      print('--- 🚀 UPDATING DEVICE ACTION STATUS ---');
+      print('URL: $url');
+      print('Request Body: ${jsonEncode(requestBody)}');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print('--- 📥 UPDATE DEVICE STATUS RESPONSE ---');
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body);
+
+        if (decoded is Map) {
+          final statusVal = decoded['status']?.toString();
+          final successVal = decoded['success'];
+
+          if (successVal == true ||
+              successVal == 'true' ||
+              statusVal == '200' ||
+              statusVal == 'true' ||
+              statusVal == 'True' ||
+              (decoded['message'] != null && decoded['message'].toString().toLowerCase().contains('success'))) {
+            return true;
+          }
+        }
+
+        if (response.body.toLowerCase().contains("success") || response.body.contains("200")) {
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('--- ❌ UPDATE DEVICE STATUS ERROR ---');
+      print('Error: $e');
+      return false;
     }
   }
 }
@@ -333,8 +615,12 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       "login_Type": loginType,
       "deviceId": deviceId,
       "token": token,
-      "imeiNumber": "",
+      "imeiNumber": imeiNumber,
     };
+
+    print('--- 🚀 LOGIN REQUEST ---');
+    print('URL: $uri');
+    print('Request Body: ${jsonEncode(requestBody)}');
 
     final response = await ApiClient.post(
       uri,
@@ -344,6 +630,10 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       },
       body: jsonEncode(requestBody),
     );
+
+    print('--- 📥 LOGIN RESPONSE ---');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
 
     try {
       final responseData = jsonDecode(response.body);
@@ -428,6 +718,8 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           await _fetchAndSendLocationAfterLogin();
           await AppMasterService.sendInstalledApps();
           await DeviceInformationService.sendDeviceInformation();
+          await PendingActionService.checkPendingDeviceActions();
+          await AppUninstalledService.sendAppUninstalledNotification();
         }
 
         return loginResponse;
@@ -504,6 +796,13 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   }
 
   @override
+  CodeSaveCustomerLocationKit({
+    required double latitude,
+    required double longitude,
+  }) async {
+  }
+
+  @override
   Future<bool> saveCustomerLocationKit({
     required double latitude,
     required double longitude,
@@ -526,11 +825,21 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         "locationTime": DateTime.now().toUtc().toIso8601String(),
       };
 
+      print('--- 🚀 SAVE CUSTOMER LOCATION REQUEST ---');
+      print('URL: $uri');
+      print('Method: POST');
+      print('Headers: ${{'accept': '*/*', 'Content-Type': 'application/json'}}');
+      print('Body: ${jsonEncode(requestBody)}');
+
       final response = await ApiClient.post(
         uri,
         headers: {'accept': '*/*', 'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
+
+      print('--- 📥 SAVE CUSTOMER LOCATION RESPONSE ---');
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final decoded = jsonDecode(response.body);

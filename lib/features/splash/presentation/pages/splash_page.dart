@@ -27,6 +27,8 @@ class SplashPage extends StatelessWidget {
             context.go(RouteNames.login);
           } else if (state is SplashNavigateToHome) {
             context.go(RouteNames.profile);
+          } else if (state is SplashNavigateToGenerateKey) {
+            context.go(RouteNames.generateKey);
           }
         },
         child: Scaffold(

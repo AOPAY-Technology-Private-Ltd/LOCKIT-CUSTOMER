@@ -7,6 +7,6 @@ class GenerateKeyUseCase {
   GenerateKeyUseCase(this.repository);
 
   Future<GeneratedKeyEntity> call() async {
-    return await repository.generateKey();
+    return await repository.generateAndValidateKey();
   }
 }

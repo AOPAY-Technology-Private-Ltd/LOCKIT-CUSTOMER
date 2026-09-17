@@ -17,6 +17,7 @@ import '../../features/generate_key/data/datasources/generate_key_remote_datasou
 import '../../features/generate_key/data/repositories/generate_key_repository_impl.dart';
 import '../../features/generate_key/domain/repositories/generate_key_repository.dart';
 import '../../features/generate_key/domain/usecases/generate_key_usecase.dart';
+import '../../features/generate_key/domain/usecases/validate_customer_key_usecase.dart';
 import '../../features/generate_key/presentation/bloc/generate_key_bloc.dart';
 
 final GetIt sl = GetIt.instance;
@@ -49,6 +50,12 @@ Future<void> init() async {
 
   sl.registerLazySingleton<GenerateKeyRemoteDataSource>(() => GenerateKeyRemoteDataSourceImpl());
   sl.registerLazySingleton<GenerateKeyRepository>(() => GenerateKeyRepositoryImpl(sl()));
+
   sl.registerLazySingleton(() => GenerateKeyUseCase(sl()));
-  sl.registerFactory(() => GenerateKeyBloc(sl()));
+  sl.registerLazySingleton(() => ValidateCustomerKeyUseCase(sl()));
+
+  sl.registerFactory(() => GenerateKeyBloc(
+    sl(),
+    sl(),
+  ));
 }

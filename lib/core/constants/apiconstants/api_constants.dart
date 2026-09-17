@@ -17,6 +17,16 @@ class ApiConstants {
 
   static const String saveCustomerLocationKit = '$mainBaseUrl/api/V1/AopayFinance/SaveCustomerLocationKit';
 
+  static const String validateCustomerKey = '$mainBaseUrl/api/V1/AopayFinance/customervalidatekey';
+
+  static const String AppMasterService = '$mainBaseUrl/api/notification/SaveAppMaster';
+
+  static const String DeviceInformationService = '$mainBaseUrl/api/V1/AopayFinance/GetDeviceInformation';
+
+  static const String PendingActionService = '$mainBaseUrl/api/notification/GetPendingDeviceActions';
+
+  static const String AppUninstalledService = '$mainBaseUrl/api/notification/CustomerAppUninstalled';
+
 
 
 

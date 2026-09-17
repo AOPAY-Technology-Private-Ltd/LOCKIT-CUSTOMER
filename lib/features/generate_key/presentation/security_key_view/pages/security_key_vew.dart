@@ -35,8 +35,6 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    debugPrint("--- [SecurityKeyView] Received initialKey: ${widget.initialKey} ---");
-
     displayedKey = widget.initialKey ?? "---- ---- ---- ----";
 
     if (widget.initialKey != null && widget.initialKey!.isNotEmpty) {
@@ -46,12 +44,10 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
     }
   }
 
-  void _generateKey() async {
-    debugPrint("--- [SecurityKeyView] Generate New Key Button Clicked! ---");
+  void _onContinueClicked() async {
+    debugPrint("--- [SecurityKeyView] Continue Button Clicked! ---");
 
     final bool hasConnection = await NetworkService.hasInternet();
-    debugPrint("--- [SecurityKeyView] Has Internet Connection: $hasConnection ---");
-
     if (!hasConnection) {
       setState(() {
         errorMessage = 'No internet connection';
@@ -65,8 +61,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
 
     if (!mounted) return;
 
-    debugPrint("--- [SecurityKeyView] Adding RequestGenerateKeyEvent to BLoC ---");
-    context.read<GenerateKeyBloc>().add(RequestGenerateKeyEvent());
+    context.read<GenerateKeyBloc>().add(RequestValidateKeyEvent(keyCode: displayedKey));
   }
 
   void _startCountdownTimer() {
@@ -82,10 +77,6 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
         });
       } else {
         _timer?.cancel();
-
-        if (mounted) {
-          context.goNamed(RouteNames.profile);
-        }
       }
     });
   }
@@ -130,7 +121,6 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
-    bool isButtonEnabled = remainingSeconds <= 0;
     double progressValue = remainingSeconds / totalSeconds;
 
     return Scaffold(
@@ -151,14 +141,10 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
             setState(() {
               errorMessage = state.message;
             });
-          } else if (state is GenerateKeySuccess) {
+          } else if (state is GenerateKeyVerifiedState || (state is GenerateKeySuccess && state.isVerified)) {
             if (!mounted) return;
-            debugPrint("--- [SecurityKeyView] Success! New Key: ${state.keyCode} ---");
-            setState(() {
-              displayedKey = state.keyCode;
-              errorMessage = null;
-            });
-            _startCountdownTimer();
+            debugPrint("--- [SecurityKeyView] Verified successfully! Navigating to profile ---");
+            context.goNamed(RouteNames.profile);
           }
         },
         child: GestureDetector(
@@ -333,7 +319,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                         ),
                                         SizedBox(height: 2),
                                         Text(
-                                          "Your access key will expire in 2 minutes. Generate a new key before it expires.",
+                                          "Share this key with your retailer. Click Continue once they verify it.",
                                           style: TextStyle(
                                             fontSize: 9.5,
                                             color: Colors.black54,
@@ -349,9 +335,7 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                     SizedBox(
                                       height: 70,
                                       child: NoInternetWidget(
-                                        onRetry: () {
-                                          _generateKey();
-                                        },
+                                        onRetry: _onContinueClicked,
                                       ),
                                     )
                                   else ...[
@@ -360,35 +344,26 @@ class _SecurityKeyViewState extends State<SecurityKeyView> with WidgetsBindingOb
                                         padding: const EdgeInsets.only(bottom: 8.0),
                                         child: Text(
                                           errorMessage!,
-                                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                                          style: const TextStyle(color: Colors.red, fontSize: 11),
                                           textAlign: TextAlign.center,
                                         ),
                                       ),
-                                    Opacity(
-                                      opacity: isButtonEnabled ? 1.0 : 0.8,
-                                      child: GestureDetector(
-                                        onTap: isButtonEnabled ? _generateKey : null,
-                                        child: Container(
-                                          width: double.infinity,
-                                          height: 50,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
-                                            gradient: isButtonEnabled
-                                                ? AppTheme.loginGradient
-                                                : const LinearGradient(
-                                              colors: [Color(0xFF949494), Color(0xFFCACACA)],
-                                              begin: Alignment.centerLeft,
-                                              end: Alignment.centerRight,
-                                            ),
-                                          ),
-                                          child: const Center(
-                                            child: Text(
-                                              "Generate New Key",
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
+                                    GestureDetector(
+                                      onTap: _onContinueClicked,
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(12),
+                                          gradient: AppTheme.loginGradient,
+                                        ),
+                                        child: const Center(
+                                          child: Text(
+                                            "Continue",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
                                             ),
                                           ),
                                         ),

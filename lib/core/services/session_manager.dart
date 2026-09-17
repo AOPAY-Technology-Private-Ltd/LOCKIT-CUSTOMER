@@ -10,6 +10,7 @@ class SessionManager {
   static const String _keyFcmToken = 'fcm_token';
   static const String _keyRetailerCode = 'retailer_code';
   static const String _keyClientCode = 'client_code';
+  static const String _keyIsKeyVerified = 'is_key_verified';
 
   static Future<void> createSession({
     required String customerCode,
@@ -29,6 +30,18 @@ class SessionManager {
     if (lastName != null) await prefs.setString(_keyLastName, lastName);
     if (retailerCode != null) await prefs.setString(_keyRetailerCode, retailerCode);
     if (clientcode != null) await prefs.setString(_keyClientCode, clientcode);
+
+    await prefs.setBool(_keyIsKeyVerified, false);
+  }
+
+  static Future<void> setKeyVerified(bool verified) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIsKeyVerified, verified);
+  }
+
+  static Future<bool> isKeyVerified() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyIsKeyVerified) ?? false;
   }
 
   static Future<bool> isLoggedIn() async {

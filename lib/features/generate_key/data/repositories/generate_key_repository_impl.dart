@@ -8,11 +8,18 @@ class GenerateKeyRepositoryImpl implements GenerateKeyRepository {
   GenerateKeyRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<GeneratedKeyEntity> generateKey() async {
+  Future<GeneratedKeyEntity> generateAndValidateKey() async {
     final model = await remoteDataSource.generateKeyApi();
+
     return GeneratedKeyEntity(
       keyCode: model.keyCode,
       message: model.message,
+      isVerified: false,
     );
+  }
+
+  @override
+  Future<bool> validateCustomerKey(String apiAccessKey) async {
+    return await remoteDataSource.validateCustomerKey(apiAccessKey);
   }
 }

@@ -17,9 +17,14 @@ class SplashBloc extends Bloc<SplashEvent, SplashState> {
     await Future.delayed(const Duration(seconds: 3));
 
     bool isLoggedIn = await SessionManager.isLoggedIn();
+    bool isKeyVerified = await SessionManager.isKeyVerified();
 
     if (isLoggedIn) {
-      emit(SplashNavigateToHome());
+      if (isKeyVerified) {
+        emit(SplashNavigateToHome());
+      } else {
+        emit(SplashNavigateToGenerateKey());
+      }
     } else {
       emit(SplashCompleted());
     }
