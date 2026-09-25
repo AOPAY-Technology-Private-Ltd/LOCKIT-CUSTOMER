@@ -1,11 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:permission_handler/permission_handler.dart';
 import 'core/di/injection.dart' as di;
 import 'core/constants/routes/app_router.dart';
@@ -14,7 +15,7 @@ import 'core/services/app_lifecycle_reactor.dart';
 import 'core/services/app_master_service.dart';
 import 'core/services/session_manager.dart';
 import 'features/auth/data/datasource/auth_remote_datasource.dart' hide AppMasterService;
-
+import 'features/profile/presentation/pages/DeviceLockScreen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -23,13 +24,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print("Title: ${message.notification?.title}");
   print("Body: ${message.notification?.body}");
   print("Data: ${message.data}");
-
-  try {
-    await PendingActionService.checkPendingDeviceActions();
-    print("--- ✅ BACKGROUND PENDING ACTIONS EXECUTED SUCCESSFULLY ---");
-  } catch (e) {
-    print("--- ❌ BACKGROUND PENDING ACTIONS ERROR: $e ---");
-  }
+  print("--- ✅ BACKGROUND NOTIFICATION PROCESSED SAFELY ---");
 }
 
 @pragma('vm:entry-point')
@@ -71,10 +66,9 @@ void callbackDispatcher() {
 
       try {
         await AppMasterService.sendInstalledApps();
-        await PendingActionService.checkPendingDeviceActions();
-        print("--- ✅ BACKGROUND SYNC: APPS & PENDING ACTIONS COMPLETED ---");
+        print("--- ✅ BACKGROUND SYNC: APPS SYNC COMPLETED ---");
       } catch (e) {
-        print("❌ Background Apps/Actions Sync Error: $e");
+        print("❌ Background Apps Sync Error: $e");
       }
 
       return Future.value(true);
@@ -132,6 +126,28 @@ Future<void> _requestPhonePermission() async {
   }
 }
 
+// 🎯 Device Action handle karne ka updated function
+void handleDeviceAction(Map<String, dynamic> payload) {
+  String notificationCode = payload['NotificationCode'] ?? '';
+  String action = payload['Action'] ?? '';
+
+  print("🔔 Handling Device Action -> Code: $notificationCode, Action: $action");
+
+  // 🔥 KIOSK_MODE ya LOCK_DEVICE dono ko handle karne ke liye check lagaya gaya hai
+  if (notificationCode == 'LOCK_DEVICE' || notificationCode == 'KIOSK_MODE') {
+    if (action == 'ENABLE') {
+      AppRouter.router.go('/device-lock');
+      print("🔒 Lock Screen Triggered successfully via GoRouter!");
+    } else if (action == 'DISABLE') {
+      AppRouter.router.go('/');
+      print("🔓 Lock Removed & App Unlocked successfully!");
+    }
+  } else if (notificationCode == 'UNLOCK_DEVICE' || action == 'DISABLE') {
+    AppRouter.router.go('/');
+    print("🔓 Lock Removed & App Unlocked successfully!");
+  }
+}
+
 Future<void> _initializeFCMToken() async {
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -153,6 +169,13 @@ Future<void> _initializeFCMToken() async {
       try {
         PendingActionService.checkPendingDeviceActions();
         print("--- ✅ FOREGROUND PENDING ACTIONS EXECUTED ---");
+
+        // Payload check karke Lock handler ko call karein
+        if (message.data.containsKey('payload')) {
+          String payloadString = message.data['payload'];
+          Map<String, dynamic> payloadMap = jsonDecode(payloadString);
+          handleDeviceAction(payloadMap);
+        }
       } catch (e) {
         print("--- ❌ FOREGROUND PENDING ACTIONS ERROR: $e ---");
       }
@@ -172,10 +195,6 @@ class MyApp extends StatelessWidget {
       child: MaterialApp.router(
         title: 'LockIt Customer',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-        ),
         routerConfig: AppRouter.router,
       ),
     );

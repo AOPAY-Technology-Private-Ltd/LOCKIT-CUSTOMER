@@ -28,6 +28,9 @@ class MyDeviceAdminReceiver : DeviceAdminReceiver() {
                 true
             )
 
+            // 🔥 Yeh line add ki gayi hai taaki app lock task (Kiosk mode) ko allow kar sake
+            manager.setLockTaskPackages(admin, arrayOf(context.packageName))
+
             Toast.makeText(
                 context,
                 "Lockit Customer protection enabled",
@@ -52,6 +55,8 @@ class MyDeviceAdminReceiver : DeviceAdminReceiver() {
         try {
             manager.setProfileName(componentName, "Aopay Customer")
             manager.setUninstallBlocked(componentName, context.packageName, true)
+            // 🔥 Yahan bhi lock task package whitelist kar diya hai
+            manager.setLockTaskPackages(componentName, arrayOf(context.packageName))
         } catch (e: Exception) {
             Log.e("DeviceAdmin", "Error setting provisioning complete: ${e.message}")
         }
@@ -69,6 +74,8 @@ class MyDeviceAdminReceiver : DeviceAdminReceiver() {
 
         try {
             manager.setUninstallBlocked(componentName, context.packageName, true)
+            // 🔥 Yahan bhi lock task package whitelist kar diya hai
+            manager.setLockTaskPackages(componentName, arrayOf(context.packageName))
             Toast.makeText(
                 context,
                 "Ownership transferred & protection enabled",

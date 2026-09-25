@@ -145,7 +145,6 @@ class AppMasterService {
   }
 }
 
-
 class DeviceInformationService {
   static Future<void> sendDeviceInformation() async {
     try {
@@ -396,8 +395,6 @@ class AppUninstalledService {
     }
   }
 }
-
-
 
 class UpdateDeviceActionService {
   static Future<bool> updateDeviceActionStatus({
