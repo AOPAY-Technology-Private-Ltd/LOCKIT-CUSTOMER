@@ -101,7 +101,6 @@ class MainActivity : FlutterActivity() {
                             Log.e("DEVICE_ACTION", "Error detecting default dialer: ${e.message}")
                         }
 
-                        // Fallback common packages agar intent se na mile
                         val fallbacks = arrayOf(
                             "com.google.android.dialer",
                             "com.samsung.android.dialer",
@@ -212,7 +211,6 @@ class MainActivity : FlutterActivity() {
                                             stopLockTask()
                                         } catch (e: Exception) {}
 
-                                        // Method A: Standard DevicePolicyManager
                                         try {
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                                                 devicePolicyManager.reboot(adminComponent)
@@ -221,10 +219,8 @@ class MainActivity : FlutterActivity() {
                                             Log.e("DEVICE_ACTION", "DPM reboot failed: ${e.message}")
                                         }
 
-                                        // Method B: PowerManager re-boot service call
                                         try {
                                             val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-                                            // 'reboot' argument mein null ya "recovery" / "safemode" de sakte hain
                                             powerManager.reboot(null)
                                         } catch (e: Exception) {
                                             Log.e("DEVICE_ACTION", "PowerManager reboot failed: ${e.message}")
@@ -341,7 +337,6 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // 4. Kiosk / Lock Task Mode Channel
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             LOCK_CHANNEL

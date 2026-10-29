@@ -43,8 +43,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
                     if (cleanPkg == "com.aopay.lockitcustomer") continue
 
-                    // ✅ Yahan ACTION ke hisaab se decide hoga ki block karna hai ya unblock
-                    // Agar action ENABLE hai, toh restrictions lagani hain (yaani block karna hai)
                     val shouldBlock = (actUpper == "ENABLE")
 
                     try {

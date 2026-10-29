@@ -636,7 +636,9 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       final responseData = jsonDecode(response.body);
 
       if (responseData['statuss'] == 'False' ||
-          responseData['statuss'] == false) {
+          responseData['statuss'] == false ||
+          (response.statusCode != 200 && response.statusCode != 201)) {
+
         final String rawMessage = responseData['message']?.toString() ?? '';
         String userMessage = rawMessage;
 
@@ -649,11 +651,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         throw Exception(userMessage);
       }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return LoginResponseModel.fromJson(responseData);
-      } else {
-        throw Exception("Login failed. Please try again.");
-      }
+      return LoginResponseModel.fromJson(responseData);
     } catch (e) {
       if (e is Exception) {
         rethrow;
