@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:geolocator/geolocator.dart';
@@ -14,18 +14,31 @@ import 'core/constants/apiconstants/api_constants.dart';
 import 'core/services/app_lifecycle_reactor.dart';
 import 'core/services/app_master_service.dart';
 import 'core/services/session_manager.dart';
+
 import 'features/auth/data/datasource/auth_remote_datasource.dart' hide AppMasterService;
-import 'features/profile/presentation/pages/DeviceLockScreen.dart';
 
 @pragma('vm:entry-point')
+
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print("--- 📩 BACKGROUND NOTIFICATION RECEIVED ---");
-  print("Title: ${message.notification?.title}");
-  print("Body: ${message.notification?.body}");
   print("Data: ${message.data}");
-  print("--- ✅ BACKGROUND NOTIFICATION PROCESSED SAFELY ---");
+
+  try {
+    final customerCode = await SessionManager.getCustomerCode() ?? '';
+    final clientCode = await SessionManager.getClientCode() ?? '';
+
+    if (customerCode.isNotEmpty && clientCode.isNotEmpty) {
+      await PendingActionService.checkPendingDeviceActions();
+      print("--- ✅ BACKGROUND PENDING ACTIONS EXECUTED AUTOMATICALLY ---");
+    } else {
+      print("❌ Background Action Skipped: CustomerCode or ClientCode is empty.");
+    }
+  } catch (e) {
+    print("--- ❌ BACKGROUND PENDING ACTIONS ERROR: $e ---");
+  }
 }
+
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -80,6 +93,20 @@ void callbackDispatcher() {
   });
 }
 
+void _startAutoActionChecker() {
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
+    try {
+      final customerCode = await SessionManager.getCustomerCode() ?? '';
+      if (customerCode.isNotEmpty) {
+        print("--- 🔄 AUTO CHECKING PENDING ACTIONS (Timer) ---");
+        await PendingActionService.checkPendingDeviceActions();
+      }
+    } catch (e) {
+      print("❌ Auto Check Error: $e");
+    }
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -106,6 +133,8 @@ void main() async {
   await _initializeFCMToken();
   await di.init();
 
+  _startAutoActionChecker();
+
   runApp(const MyApp());
 }
 
@@ -126,30 +155,41 @@ Future<void> _requestPhonePermission() async {
   }
 }
 
-// 🎯 Device Action handle karne ka updated function
 void handleDeviceAction(Map<String, dynamic> payload) {
-  String notificationCode = payload['NotificationCode'] ?? '';
-  String action = payload['Action'] ?? '';
+  String notificationCode = payload['NotificationCode'] ?? payload['notificationCode'] ?? '';
+  String action = payload['Action'] ?? payload['action'] ?? '';
 
   print("🔔 Handling Device Action -> Code: $notificationCode, Action: $action");
 
-  // 🔥 KIOSK_MODE ya LOCK_DEVICE dono ko handle karne ke liye check lagaya gaya hai
   if (notificationCode == 'LOCK_DEVICE' || notificationCode == 'KIOSK_MODE') {
-    if (action == 'ENABLE') {
+    if (action.toUpperCase() == 'ENABLE') {
       AppRouter.router.go('/device-lock');
       print("🔒 Lock Screen Triggered successfully via GoRouter!");
-    } else if (action == 'DISABLE') {
-      AppRouter.router.go('/');
+    } else if (action.toUpperCase() == 'DISABLE') {
+      AppRouter.router.go('/profile');
       print("🔓 Lock Removed & App Unlocked successfully!");
     }
-  } else if (notificationCode == 'UNLOCK_DEVICE' || action == 'DISABLE') {
-    AppRouter.router.go('/');
+  } else if (notificationCode == 'UNLOCK_DEVICE' || action.toUpperCase() == 'DISABLE') {
+    AppRouter.router.go('/profile');
     print("🔓 Lock Removed & App Unlocked successfully!");
   }
 }
 
 Future<void> _initializeFCMToken() async {
   try {
+    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    print('🔔 User notification permission status: ${settings.authorizationStatus}');
+
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
     final prefs = await SharedPreferences.getInstance();
     String? fcmToken = await FirebaseMessaging.instance.getToken();
 
@@ -160,24 +200,38 @@ Future<void> _initializeFCMToken() async {
       print("MAIN.DART - FCM Token is null or empty");
     }
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       print("--- 🔔 FOREGROUND NOTIFICATION RECEIVED ---");
       print("Title: ${message.notification?.title}");
       print("Body: ${message.notification?.body}");
       print("Data: ${message.data}");
 
       try {
-        PendingActionService.checkPendingDeviceActions();
+        await PendingActionService.checkPendingDeviceActions();
         print("--- ✅ FOREGROUND PENDING ACTIONS EXECUTED ---");
 
-        // Payload check karke Lock handler ko call karein
         if (message.data.containsKey('payload')) {
           String payloadString = message.data['payload'];
           Map<String, dynamic> payloadMap = jsonDecode(payloadString);
           handleDeviceAction(payloadMap);
+        } else if (message.data.containsKey('NotificationCode') || message.data.containsKey('notificationCode')) {
+          handleDeviceAction(message.data);
         }
       } catch (e) {
         print("--- ❌ FOREGROUND PENDING ACTIONS ERROR: $e ---");
+      }
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+      print("--- 📱 NOTIFICATION CLICKED & APP OPENED ---");
+      print("Data: ${message.data}");
+      try {
+        await PendingActionService.checkPendingDeviceActions();
+        if (message.data.containsKey('NotificationCode') || message.data.containsKey('notificationCode')) {
+          handleDeviceAction(message.data);
+        }
+      } catch (e) {
+        print("❌ Error on message opened app: $e");
       }
     });
 

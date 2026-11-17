@@ -27,7 +27,7 @@ class _DeviceLockScreenState extends State<DeviceLockScreen> {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _lockDeviceTask();
-    _fetchRetailerProfile(); // API se data fetch karne ke liye
+    _fetchRetailerProfile();
   }
 
   Future<void> _lockDeviceTask() async {
@@ -48,7 +48,6 @@ class _DeviceLockScreenState extends State<DeviceLockScreen> {
     }
   }
 
-  // API se profile data fetch karne ka method
   Future<void> _fetchRetailerProfile() async {
     try {
       final bool hasConnection = await NetworkService.hasInternet();
@@ -95,7 +94,6 @@ class _DeviceLockScreenState extends State<DeviceLockScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
 
-        // Response ke anusaar fields set karein (jaise firstName, mobileNo, emailid)
         setState(() {
           String fName = data['firstName'] ?? '';
           String lName = data['lastName'] ?? '';
@@ -125,7 +123,7 @@ class _DeviceLockScreenState extends State<DeviceLockScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Back button completely disabled
+      canPop: false,
       child: Scaffold(
         body: Container(
           width: double.infinity,

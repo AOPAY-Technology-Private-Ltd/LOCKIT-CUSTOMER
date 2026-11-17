@@ -40,7 +40,6 @@ flutter {
 }
 
 dependencies {
-    // ✅ Native Firebase Messaging dependency for background/killed state handling
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
 }

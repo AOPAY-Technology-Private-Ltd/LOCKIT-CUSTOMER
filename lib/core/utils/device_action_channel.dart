@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 class DeviceActionChannel {
   static const MethodChannel _channel = MethodChannel('com.bosoq.device_owner/actions');
 
-  // Ab yeh function list of apps bhi accept karega
   static Future<void> performAction({
     required String notificationCode,
     String? packageName,

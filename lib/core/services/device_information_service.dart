@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:lockit_customer/core/constants/apiconstants/api_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -93,7 +94,7 @@ class DeviceInformationService {
         "slotIndex": slotIndex
       };
 
-      final url = Uri.parse('https://uatapi.aopay.co.in/api/V1/AopayFinance/GetDeviceInformation');
+      final url = Uri.parse(ApiConstants.deviceInformationService);
       final String encodedBody = jsonEncode(requestBody);
 
       print('--- 🚀 SENDING DEVICE INFORMATION ---');

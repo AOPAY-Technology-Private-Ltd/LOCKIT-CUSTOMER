@@ -188,20 +188,30 @@ class MainActivity : FlutterActivity() {
                                     }
                                 }
                             }
-                            "kiosk_mode", "kiosk" -> {
+
+                            "kiosk_mode", "kiosk", "lock_device" -> {
                                 try {
                                     if (actionUpper == "ENABLE") {
-                                        startLockTask()
-                                        Log.d("DEVICE_ACTION", "🔒 Kiosk Mode (Lock Task) Enabled Successfully")
+                                        try {
+                                            startLockTask()
+                                        } catch (e: Exception) {}
+
+                                        if (devicePolicyManager.isAdminActive(adminComponent)) {
+                                            devicePolicyManager.lockNow()
+                                            Log.d("DEVICE_ACTION", "🔒 Device Locked Successfully via lockNow()")
+                                        } else {
+                                            Log.e("DEVICE_ACTION", "❌ Device Admin is not active, cannot lock screen.")
+                                        }
                                     } else if (actionUpper == "DISABLE") {
-                                        stopLockTask()
-                                        Log.d("DEVICE_ACTION", "🔓 Kiosk Mode (Lock Task) Disabled Successfully")
+                                        try {
+                                            stopLockTask()
+                                        } catch (e: Exception) {}
+                                        Log.d("DEVICE_ACTION", "🔓 Device Unlocked Successfully")
                                     }
                                 } catch (e: Exception) {
-                                    Log.e("DEVICE_ACTION", "Kiosk Mode action error: ${e.message}")
+                                    Log.e("DEVICE_ACTION", "Lock Device action error: ${e.message}")
                                 }
                             }
-
                             "reboot", "restart" -> {
                                 try {
                                     if (actionUpper == "ENABLE" || actionUpper == "REBOOT") {

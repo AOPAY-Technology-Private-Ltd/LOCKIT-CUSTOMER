@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/constants/apiconstants/api_constants.dart';
+import '../../../../core/constants/routes/app_router.dart';
 import '../../../../core/helper/api_client.dart';
 import '../../../../core/services/session_manager.dart';
 import '../../../../core/network/network_service.dart';
@@ -49,7 +51,7 @@ class AppMasterService {
 
       List<AppInfo> apps = await InstalledApps.getInstalledApps(true, false);
 
-      Map<String, List<Map<String, dynamic>>> categorizedApps = {
+      Map categorizedApps = {
         "SOCIAL_APPS": [],
         "UPI_APPS": [],
         "GAMING_APPS": [],
@@ -91,16 +93,16 @@ class AppMasterService {
           targetCategory = "TRUECALLER_APPS";
         }
 
-        categorizedApps[targetCategory]!.add({
+        (categorizedApps[targetCategory] as List).add({
           "appName": app.name ?? '',
           "packageName": app.packageName ?? '',
         });
       }
 
-      List<Map<String, dynamic>> categoriesPayload = [];
+      List categoriesPayload = [];
 
       categorizedApps.forEach((catKey, appList) {
-        if (appList.isNotEmpty) {
+        if ((appList as List).isNotEmpty) {
           categoriesPayload.add({
             "category": catKey,
             "apps": appList,
@@ -113,24 +115,15 @@ class AppMasterService {
         "categories": categoriesPayload,
       };
 
-      final url = Uri.parse(ApiConstants.AppMasterService);
+      final url = Uri.parse(ApiConstants.appMasterService);
       final String encodedBody = jsonEncode(requestBody);
 
       print('--- 🚀 SENDING CATEGORIZED INSTALLED APPS ---');
       print('URL: $url');
       print('Total Categories: ${categoriesPayload.length}');
 
-      print('--- 📦 REQUEST BODY START ---');
-      final pattern = RegExp('.{1,800}');
-      pattern.allMatches(encodedBody).forEach((match) => print('BODY PART: ${match.group(0)}'));
-      print('--- 📦 REQUEST BODY END ---');
-
-      final response = await http.post(
+      final response = await ApiClient.post(
         url,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: encodedBody,
       );
 
@@ -161,7 +154,7 @@ class DeviceInformationService {
       if (Platform.isAndroid) {
         try {
           const MethodChannel imeiPlatform = MethodChannel('com.bosoq.device_owner/imei');
-          final String? nativeImei = await imeiPlatform.invokeMethod<String>('getImei');
+          final String? nativeImei = await imeiPlatform.invokeMethod('getImei');
 
           if (nativeImei != null &&
               nativeImei.trim().isNotEmpty &&
@@ -175,9 +168,9 @@ class DeviceInformationService {
 
         try {
           const MethodChannel simChannel = MethodChannel('com.bosoq.device_owner/sim_info');
-          final Map<Object?, Object?>? simResult = await simChannel.invokeMethod<Map<Object?, Object?>>('getSimInfo');
+          final simResult = await simChannel.invokeMethod('getSimInfo');
 
-          if (simResult != null) {
+          if (simResult is Map) {
             carrierName = simResult['carrierName']?.toString() ?? "";
             mcc = simResult['mcc']?.toString() ?? "";
             mnc = simResult['mnc']?.toString() ?? "";
@@ -218,21 +211,16 @@ class DeviceInformationService {
         "slotIndex": slotIndex
       };
 
-      final url = Uri.parse(ApiConstants.DeviceInformationService);
+      final url = Uri.parse(ApiConstants.deviceInformationService);
       final String encodedBody = jsonEncode(requestBody);
 
       print('--- 🚀 SENDING DEVICE INFORMATION ---');
       print('URL: $url');
       print('IMEI Number: $imeiNumber');
       print('Carrier Name: $carrierName');
-      print('Request Body: $encodedBody');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         url,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: encodedBody,
       );
 
@@ -259,7 +247,7 @@ class PendingActionService {
         return;
       }
 
-      final url = Uri.parse(ApiConstants.PendingActionService);
+      final url = Uri.parse(ApiConstants.pendingActionService);
 
       final requestBody = {
         "customerCode": customerCode,
@@ -270,12 +258,8 @@ class PendingActionService {
       print('URL: $url');
       print('Request Body: ${jsonEncode(requestBody)}');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         url,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(requestBody),
       );
 
@@ -323,6 +307,33 @@ class PendingActionService {
             ).timeout(const Duration(seconds: 10));
 
             print('✅ Successfully executed: $packageName');
+
+            if ((notificationCode == 'LOCK_DEVICE' || packageName == 'LOCK_DEVICE' || notificationCode == 'KIOSK_MODE') &&
+                actionType.toUpperCase() == 'ENABLE') {
+              print("🔒 LOCK_DEVICE enabled -> Navigating to /device-lock via GoRouter");
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                try {
+                  AppRouter.router.go('/device-lock');
+                } catch (e) {
+                  print("❌ Navigation error: $e");
+                }
+              });
+            }
+
+            if ((notificationCode == 'LOCK_DEVICE' || notificationCode == 'UNLOCK_DEVICE' || packageName == 'LOCK_DEVICE' || notificationCode == 'KIOSK_MODE') &&
+                actionType.toUpperCase() == 'DISABLE') {
+              print("🔓 LOCK_DEVICE disabled -> Navigating back to /profile via GoRouter");
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                try {
+                  AppRouter.router.go('/profile');
+                } catch (e) {
+                  print("❌ Navigation error: $e");
+                }
+              });
+            }
+
           } catch (e) {
             allAppsExecuted = false;
             print('❌ Error executing package $packageName: $e');
@@ -362,7 +373,7 @@ class AppUninstalledService {
 
       if (customerCode.isEmpty) return;
 
-      final url = Uri.parse(ApiConstants.AppUninstalledService);
+      final url = Uri.parse(ApiConstants.appUninstalledService);
 
       final requestBody = {
         "clientCode": clientCode,
@@ -375,14 +386,9 @@ class AppUninstalledService {
 
       print('--- 🚀 SENDING APP UNINSTALLED NOTIFICATION ---');
       print('URL: $url');
-      print('Request Body: ${jsonEncode(requestBody)}');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         url,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(requestBody),
       );
 
@@ -411,7 +417,7 @@ class UpdateDeviceActionService {
     int slotIndex = 0,
   }) async {
     try {
-      final url = Uri.parse('https://uatapi.aopay.co.in/api/notification/UpdateDeviceActionStatus');
+      final url = Uri.parse(ApiConstants.updateDeviceActionStatus);
 
       final requestBody = {
         "rid": rid,
@@ -429,14 +435,9 @@ class UpdateDeviceActionService {
 
       print('--- 🚀 UPDATING DEVICE ACTION STATUS ---');
       print('URL: $url');
-      print('Request Body: ${jsonEncode(requestBody)}');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         url,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(requestBody),
       );
 
@@ -499,14 +500,9 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
       print('--- SEND OTP REQUEST ---');
       print('URL: $uri');
-      print('Request Body: ${jsonEncode(requestBody)}');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         uri,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(requestBody),
       );
 
@@ -551,7 +547,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       throw Exception('No internet connection');
     }
 
-    final uri = Uri.parse(ApiConstants.Login);
+    final uri = Uri.parse(ApiConstants.login);
     final prefs = await SharedPreferences.getInstance();
 
     try {
@@ -592,9 +588,14 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         } catch (e) {
           print("❌ Dynamic IMEI error during login: $e");
         }
+
+        if (imeiNumber.isEmpty) {
+          imeiNumber = deviceId.isNotEmpty ? deviceId : "FALLBACK_IMEI_UNAVAILABLE";
+        }
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
         deviceId = iosInfo.identifierForVendor ?? 'ios_device_id';
+        imeiNumber = deviceId;
       }
 
       await prefs.setString('device_id', deviceId);
@@ -602,6 +603,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     } catch (e) {
       print("❌ Device information error: $e");
       deviceId = "UNKNOWN_DEVICE_ID";
+      imeiNumber = "UNKNOWN_IMEI";
     }
 
     final String token = prefs.getString('fcm_token') ?? '';
@@ -621,10 +623,6 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
     final response = await ApiClient.post(
       uri,
-      headers: {
-        'accept': '*/*',
-        'Content-Type': 'application/json',
-      },
       body: jsonEncode(requestBody),
     );
 
@@ -679,10 +677,6 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
       final response = await ApiClient.post(
         uri,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(requestBody),
       );
 
@@ -791,13 +785,6 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   }
 
   @override
-  CodeSaveCustomerLocationKit({
-    required double latitude,
-    required double longitude,
-  }) async {
-  }
-
-  @override
   Future<bool> saveCustomerLocationKit({
     required double latitude,
     required double longitude,
@@ -822,13 +809,9 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
       print('--- 🚀 SAVE CUSTOMER LOCATION REQUEST ---');
       print('URL: $uri');
-      print('Method: POST');
-      print('Headers: ${{'accept': '*/*', 'Content-Type': 'application/json'}}');
-      print('Body: ${jsonEncode(requestBody)}');
 
       final response = await ApiClient.post(
         uri,
-        headers: {'accept': '*/*', 'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
 

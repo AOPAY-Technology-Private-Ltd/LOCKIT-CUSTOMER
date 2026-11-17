@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../../../../core/constants/apiconstants/api_constants.dart';
+import '../../../../core/helper/api_client.dart';
 import '../../../../core/services/session_manager.dart';
 import '../models/generate_key_model.dart';
 
@@ -14,12 +14,7 @@ class GenerateKeyRemoteDataSourceImpl implements GenerateKeyRemoteDataSource {
 
   @override
   Future<GenerateKeyModel> generateKeyApi() async {
-    const url = ApiConstants.generateKeyApi;
-
-    final headers = {
-      'accept': '*/*',
-      'Content-Type': 'application/json',
-    };
+    final url = Uri.parse(ApiConstants.generateKeyApi);
 
     final String fcmToken = await SessionManager.getFcmToken();
     final String clientcode = await SessionManager.getClientCode() ?? '';
@@ -36,9 +31,8 @@ class GenerateKeyRemoteDataSourceImpl implements GenerateKeyRemoteDataSource {
     print('REQUEST BODY: ${jsonEncode(requestBody)}');
     print('==============================');
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: headers,
+    final response = await ApiClient.post(
+      url,
       body: jsonEncode(requestBody),
     );
 
@@ -68,12 +62,8 @@ class GenerateKeyRemoteDataSourceImpl implements GenerateKeyRemoteDataSource {
       print('URL: $url');
       print('Request Body: ${jsonEncode(requestBody)}');
 
-      final response = await http.post(
+      final response = await ApiClient.post(
         url,
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'application/json',
-        },
         body: jsonEncode(requestBody),
       );
 

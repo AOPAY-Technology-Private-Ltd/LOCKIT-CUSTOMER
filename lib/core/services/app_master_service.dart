@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:http/http.dart' as http;
+import 'package:lockit_customer/core/constants/apiconstants/api_constants.dart';
 import '../../../../core/services/session_manager.dart';
 
 class AppMasterService {
@@ -28,7 +29,7 @@ class AppMasterService {
         ]
       };
 
-      final url = Uri.parse('https://uatapi.aopay.co.in/api/notification/SaveAppMaster');
+      final url = Uri.parse(ApiConstants.appMasterService);
 
       final String encodedBody = jsonEncode(requestBody);
 

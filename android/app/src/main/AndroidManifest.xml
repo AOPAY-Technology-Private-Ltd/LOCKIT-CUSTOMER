@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
-
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
@@ -17,6 +14,14 @@
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:supportsRtl="true">
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel" />
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
 
         <activity
             android:name=".MainActivity"
@@ -39,7 +44,6 @@
 
         </activity>
 
-        <!-- Android 12+ Provisioning Mode -->
         <activity
             android:name=".ProvisioningModeActivity"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -53,7 +57,6 @@
 
         </activity>
 
-        <!-- Android 12+ Admin Policy Compliance -->
         <activity
             android:name=".PolicyComplianceActivity"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -67,7 +70,6 @@
 
         </activity>
 
-        <!-- Device Admin Receiver -->
         <receiver
             android:name=".MyDeviceAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -89,11 +91,9 @@
         <service
             android:name=".MyFirebaseMessagingService"
             android:exported="false">
-
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
-
         </service>
 
         <meta-data
@@ -103,12 +103,10 @@
     </application>
 
     <queries>
-
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
-
     </queries>
 
 </manifest>

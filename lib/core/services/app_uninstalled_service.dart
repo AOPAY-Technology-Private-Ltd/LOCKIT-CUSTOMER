@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:lockit_customer/core/constants/apiconstants/api_constants.dart';
 
 import 'package:lockit_customer/core/services/session_manager.dart';
 
@@ -12,7 +13,7 @@ class AppUninstalledService {
 
       if (customerCode.isEmpty) return;
 
-      final url = Uri.parse('https://uatapi.aopay.co.in/api/notification/CustomerAppUninstalled');
+      final url = Uri.parse(ApiConstants.appUninstalledService);
 
       final requestBody = {
         "clientCode": clientCode,

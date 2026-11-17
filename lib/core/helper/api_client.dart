@@ -1,3 +1,6 @@
+
+import 'dart:async';
+
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -5,18 +8,25 @@ class ApiClient {
   static String? _cachedAppVersion;
 
   static Future<String> _getAppVersion() async {
-    if (_cachedAppVersion != null) return _cachedAppVersion!;
+    if (_cachedAppVersion != null) {
+      return _cachedAppVersion!;
+    }
+
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       _cachedAppVersion = packageInfo.version;
-    } catch (_) {
+    } catch (e) {
       _cachedAppVersion = '1.0.0';
     }
+
     return _cachedAppVersion!;
   }
 
-  static Future<Map<String, String>> _getHeaders(Map<String, String>? userHeaders) async {
+  static Future<Map<String, String>> _getHeaders(
+      Map<String, String>? userHeaders,
+      ) async {
     final version = await _getAppVersion();
+
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
       'accept': '*/*',
@@ -26,6 +36,7 @@ class ApiClient {
     if (userHeaders != null) {
       headers.addAll(userHeaders);
     }
+
     return headers;
   }
 
@@ -35,7 +46,12 @@ class ApiClient {
         Object? body,
       }) async {
     final finalHeaders = await _getHeaders(headers);
-    return await http.post(url, headers: finalHeaders, body: body);
+
+    return await http.post(
+      url,
+      headers: finalHeaders,
+      body: body,
+    );
   }
 
   static Future<http.Response> get(
@@ -43,6 +59,10 @@ class ApiClient {
         Map<String, String>? headers,
       }) async {
     final finalHeaders = await _getHeaders(headers);
-    return await http.get(url, headers: finalHeaders);
+
+    return await http.get(
+      url,
+      headers: finalHeaders,
+    );
   }
 }

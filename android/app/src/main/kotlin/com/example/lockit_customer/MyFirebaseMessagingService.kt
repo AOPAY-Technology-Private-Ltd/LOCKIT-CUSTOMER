@@ -3,6 +3,7 @@ package com.aopay.lockitCustomer
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -24,13 +25,31 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val jsonObject = JSONObject(payloadStr)
 
             val rid = jsonObject.optInt("rid", 0)
-            val triggeredBy = jsonObject.optString("TriggeredBy", "AFC0328")
+            val notificationCode = jsonObject.optString("NotificationCode").ifEmpty { jsonObject.optString("notificationCode") }
+            val triggeredBy = jsonObject.optString("TriggeredBy").ifEmpty { jsonObject.optString("triggeredBy", "AFC0546") }
             val appActionsArray = jsonObject.optJSONArray("AppActions") ?: jsonObject.optJSONArray("selectedApps")
 
             val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
             val adminComponent = ComponentName(this, MyDeviceAdminReceiver::class.java)
 
             var allAppsExecuted = true
+            var shouldOpenLockScreen = false
+
+            if (notificationCode.equals("LOCK_DEVICE", ignoreCase = true) || notificationCode.equals("KIOSK_MODE", ignoreCase = true)) {
+                try {
+                    if (devicePolicyManager.isAdminActive(adminComponent)) {
+                        devicePolicyManager.lockNow()
+                        shouldOpenLockScreen = true
+                        Log.d("FCM_NATIVE", "🔒 Device Locked Successfully via Native Background Service")
+                    } else {
+                        Log.e("FCM_NATIVE", "❌ Device Admin is not active, cannot lock screen.")
+                        allAppsExecuted = false
+                    }
+                } catch (e: Exception) {
+                    allAppsExecuted = false
+                    Log.e("FCM_NATIVE", "Error locking device: ${e.message}")
+                }
+            }
 
             if (appActionsArray != null && appActionsArray.length() > 0) {
                 for (i in 0 until appActionsArray.length()) {
@@ -46,26 +65,55 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     val shouldBlock = (actUpper == "ENABLE")
 
                     try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            when (cleanPkg) {
-                                "wifi" -> {
-                                    devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_WIFI)
+                        when (cleanPkg) {
+                            "lock_device", "kiosk_mode" -> {
+                                if (actUpper == "ENABLE") {
+                                    if (devicePolicyManager.isAdminActive(adminComponent)) {
+                                        devicePolicyManager.lockNow()
+                                        shouldOpenLockScreen = true
+                                        Log.d("FCM_NATIVE", "🔒 Device Locked via AppAction package")
+                                    } else {
+                                        allAppsExecuted = false
+                                    }
+                                }
+                            }
+                            "wifi" -> {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                    if (shouldBlock) {
+                                        devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_WIFI)
+                                    } else {
+                                        devicePolicyManager.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_WIFI)
+                                    }
                                     Log.d("FCM_NATIVE", "📶 Wifi Restriction -> Blocked: $shouldBlock")
                                 }
-                                "bluetooth" -> {
-                                    devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_BLUETOOTH)
-                                    Log.d("FCM_NATIVE", " 블루투스 Bluetooth Restriction -> Blocked: $shouldBlock")
+                            }
+                            "bluetooth" -> {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                    if (shouldBlock) {
+                                        devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_BLUETOOTH)
+                                    } else {
+                                        devicePolicyManager.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_BLUETOOTH)
+                                    }
+                                    Log.d("FCM_NATIVE", "🔵 Bluetooth Restriction -> Blocked: $shouldBlock")
                                 }
-                                "hotspot", "tethering" -> {
-                                    devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_TETHERING)
-                                    Log.d("FCM_NATIVE", " hotspot/tethering Restriction -> Blocked: $shouldBlock")
+                            }
+                            "hotspot", "tethering" -> {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                    if (shouldBlock) {
+                                        devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_TETHERING)
+                                    } else {
+                                        devicePolicyManager.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_TETHERING)
+                                    }
+                                    Log.d("FCM_NATIVE", "🔥 Hotspot/Tethering Restriction -> Blocked: $shouldBlock")
                                 }
-                                else -> {
-                                    if (cleanPkg.contains(".")) {
+                            }
+                            else -> {
+                                if (cleanPkg.contains(".")) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                                         devicePolicyManager.setPackagesSuspended(adminComponent, arrayOf(cleanPkg), shouldBlock)
                                         devicePolicyManager.setUninstallBlocked(adminComponent, cleanPkg, shouldBlock)
-                                        Log.d("FCM_NATIVE", "🔒 Native Background App Action: $cleanPkg -> Blocked: $shouldBlock")
                                     }
+                                    Log.d("FCM_NATIVE", "🔒 Native Background App Action: $cleanPkg -> Blocked: $shouldBlock")
                                 }
                             }
                         }
@@ -74,6 +122,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         Log.e("FCM_NATIVE", "Error executing native action for $cleanPkg: ${e.message}")
                     }
                 }
+            }
+
+            if (shouldOpenLockScreen) {
+                bringLockScreenToForeground()
             }
 
             if (rid > 0) {
@@ -87,10 +139,23 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
 
+    private fun bringLockScreenToForeground() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra("route_to", "/device-lock")
+            }
+            startActivity(intent)
+            Log.d("FCM_NATIVE", "🚀 Successfully forced MainActivity to foreground for lock screen.")
+        } catch (e: Exception) {
+            Log.e("FCM_NATIVE", "❌ Failed to bring lock screen to foreground: ${e.message}")
+        }
+    }
+
     private fun updateDeviceActionStatusBackground(rid: Int, executionStatus: String, updatedBy: String) {
         Thread {
             try {
-                val url = URL("https://uatapi.aopay.co.in/api/notification/UpdateDeviceActionStatus")
+                val url = URL("https://dev.uatapi.aopay.co.in/api/notification/UpdateDeviceActionStatus")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
@@ -116,8 +181,11 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 os.flush()
                 os.close()
 
-                conn.responseCode
-            } catch (e: Exception) {}
+                val responseCode = conn.responseCode
+                Log.d("FCM_NATIVE", "🌐 Background Status Update Response Code: $responseCode")
+            } catch (e: Exception) {
+                Log.e("FCM_NATIVE", "❌ Background Status Update Error: ${e.message}")
+            }
         }.start()
     }
 }

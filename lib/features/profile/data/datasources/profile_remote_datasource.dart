@@ -45,10 +45,6 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
 
     final response = await ApiClient.post(
       uri,
-      headers: {
-        'accept': '*/*',
-        'Content-Type': 'application/json',
-      },
       body: jsonEncode(requestBody),
     );
 
